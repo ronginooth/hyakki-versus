@@ -843,7 +843,7 @@ const botTierPick = () => Math.random() < 0.2 ? 3 : rndTier();   // Bot強化: 2
 function newGame(){
   pieces = []; units = []; projs = []; effects = []; floats = [];
   tLeft = 0; botTimer = 0.5; winner = null;
-  battle = { base: { jp: 750, mx: 750 }, t: 0, ushi: false };
+  battle = { base: { jp: 1200, mx: 1200 }, t: 0, ushi: false };
   combo = { jp: { n: 0, at: -9 }, mx: { n: 0, at: -9 } };
   nextTier = rndTier(); nextTierBot = botTierPick();
   countN = 3; countT = 0;
@@ -935,7 +935,7 @@ function birthAttack(fk, tier, x, y){
   }
 }
 function healBase(fk, amt, atX){
-  battle.base[fk] = Math.min(750, battle.base[fk] + amt);
+  battle.base[fk] = Math.min(1200, battle.base[fk] + amt);
   const by = wallY(fk);
   floats.push({ x: atX, y: fk==='jp' ? by-26 : by+34, t: 0, text: `+${amt}`, col: '#8ee8a0' });
   try{ bellTone(1244, ac().currentTime, 0.9, 0.02); }catch(e){}
@@ -1322,8 +1322,8 @@ function drawBaseBands(){
   drawCastleMX();
   drawCastleJP();
   if(battle){
-    fullBar(0, BASE_H + 3, battle.base.mx, 750, '#c46a30');
-    fullBar(0, H - BASE_H - 6, battle.base.jp, 750, '#5588c4');
+    fullBar(0, BASE_H + 3, battle.base.mx, 1200, '#c46a30');
+    fullBar(0, H - BASE_H - 6, battle.base.jp, 1200, '#5588c4');
   }
 }
 function stoneJoints(y0, h, step){
@@ -1618,7 +1618,11 @@ function loop(ts){
       battle.ushi = true;
       try{ bellTone(98, ac().currentTime, 2.4, 0.06); }catch(e){}
     }
-    TIMER_EL.textContent = battle.ushi ? '丑三つ時!! 攻撃2倍' : '合体で城を撃て — 先に落とせば勝ち';
+    if(!battle.ushi){
+      battle.base.jp = Math.min(1200, battle.base.jp + 0.8*dt);
+      battle.base.mx = Math.min(1200, battle.base.mx + 0.8*dt);
+    }
+    TIMER_EL.textContent = battle.ushi ? '丑三つ時!! 攻撃2倍・結界修復停止' : '合体で城を撃て — 先に落とせば勝ち';
     dropCooldown -= dt; if(dropCooldown <= 0) canDrop = true;
     if(mode === 'bot') botAct(dt);
     else if(mode === '2p') topInput(dt);
@@ -1764,7 +1768,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v7.2';
+const BUILD_VER = 'v7.3';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
