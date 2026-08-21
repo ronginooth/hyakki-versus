@@ -1538,6 +1538,7 @@ document.getElementById('joinBtn').addEventListener('click', joinRoom);
 }
 
 window.addEventListener('keydown', e => {
+  if(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
   const k = e.key.toLowerCase();
   if(['a','d','s','arrowleft','arrowright','arrowdown'].includes(k)) e.preventDefault();
   keys.add(k);
