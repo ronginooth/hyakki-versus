@@ -20,12 +20,27 @@
   canvas{background:#12101e;border:1px solid #3a3450;border-radius:8px;display:block;touch-action:none;cursor:crosshair;max-width:96vw;height:auto;}
   .note{font-size:10.5px;color:#6f668a;margin:6px 0 10px;max-width:92vw;text-align:center;line-height:1.6;}
   [hidden]{display:none !important;}
-  #netRow{display:flex;gap:8px;margin:2px 0 6px;font-size:12px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:96vw;}
-  #inviteLine{font-size:11px;color:#9a8fb8;max-width:96vw;word-break:break-all;margin:0 0 4px;}
+  #stage{position:relative;}
+  #lobby{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(11,10,20,.82);border-radius:8px;z-index:5;}
+  .lobbyCard{width:min(340px,86%);background:#161226;border:1px solid #4a4066;border-radius:14px;
+    padding:22px 20px 16px;display:flex;flex-direction:column;gap:12px;text-align:center;
+    box-shadow:0 12px 40px rgba(0,0,0,.55);}
+  .lobbyCard h2{margin:0;font-size:17px;color:#c9b98a;letter-spacing:.25em;font-weight:normal;}
+  .lobbyCard p{margin:0;font-size:11.5px;color:#9a8fb8;line-height:1.7;}
+  #roomInput{width:100%;box-sizing:border-box;background:#0d0b16;border:1px solid #4a4066;color:#e8e2d0;
+    border-radius:8px;padding:10px;font-family:inherit;text-transform:uppercase;letter-spacing:.35em;
+    font-size:18px;text-align:center;}
+  .lobbyBtns{display:flex;gap:10px;}
+  .lobbyBtns button{flex:1;background:#2a2245;color:#e8e2d0;border:1px solid #5a4e80;border-radius:8px;
+    font-size:13px;padding:10px 4px;cursor:pointer;font-family:inherit;}
+  .lobbyBtns button:active{background:#3a3060;}
+  #netStatus{font-size:12px;color:#c9b98a;min-height:2.6em;line-height:1.6;}
+  #inviteLine{font-size:10.5px;color:#9a8fb8;word-break:break-all;line-height:1.6;}
   #inviteLine b{color:#c9b98a;}
-  #netRow input{width:110px;background:#12101e;border:1px solid #3a3450;color:#e8e2d0;border-radius:6px;padding:5px 8px;font-family:inherit;text-transform:uppercase;letter-spacing:.15em;font-size:16px;}
-  #netRow button{background:#1c1830;color:#c9b98a;border:1px solid #3a3450;border-radius:6px;font-size:12px;padding:3px 10px;cursor:pointer;font-family:inherit;}
-  #netStatus{color:#9a8fb8;}
+  #copyBtn{background:none;border:1px solid #4a4066;color:#9a8fb8;border-radius:6px;font-size:10.5px;
+    padding:2px 8px;cursor:pointer;font-family:inherit;margin-left:6px;}
+  #lobbyBack{background:none;border:none;color:#6f668a;font-size:11.5px;cursor:pointer;font-family:inherit;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -36,14 +51,23 @@
   <span>下: 日本妖怪軍（あなた）</span>
   <button id="bgmBtn" type="button" aria-pressed="true" title="囃子 ON">♪ 囃子</button>
 </div>
-<div id="netRow" hidden>
-  <button id="hostBtn" type="button">部屋を作る</button>
-  <input id="roomInput" maxlength="8" placeholder="合言葉(自由)" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
-  <button id="joinBtn" type="button">参加</button>
-  <span id="netStatus"></span>
-</div>
-<div id="inviteLine" hidden>招待リンク（相手はこれを開くだけ）: <b id="inviteUrl"></b></div>
+<div id="stage">
 <canvas id="cv" width="480" height="600"></canvas>
+<div id="lobby" hidden>
+  <div class="lobbyCard">
+    <h2>オンライン対戦</h2>
+    <p>ふたりで同じ合言葉を決めて、<br>片方が「部屋を作る」、もう片方が「参加する」。</p>
+    <input id="roomInput" maxlength="8" placeholder="合言葉" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div class="lobbyBtns">
+      <button id="hostBtn" type="button">部屋を作る</button>
+      <button id="joinBtn" type="button">参加する</button>
+    </div>
+    <div id="netStatus"></div>
+    <div id="inviteLine" hidden><b id="inviteUrl"></b><button id="copyBtn" type="button">コピー</button></div>
+    <button id="lobbyBack" type="button">← タイトルへ戻る</button>
+  </div>
+</div>
+</div>
 <div class="note">下: マウスで狙いクリックで投下 ／ 上（2人対戦時）: A・Dか←→で移動、Sか↓で投下。同じ妖怪×同じ軍で合体 → 時間切れで進軍、敵の城を先に落とせば勝ち。</div>
 <script>
 /* PeerJS v1.5.5 (MIT License) — https://github.com/peers/peerjs */
@@ -808,7 +832,7 @@ let remoteDrops = [];              // host: ゲストの投下要求
 let sfxLog = [];                   // host: ゲストへ流す効果音
 let frameNo = 0;
 let nextTier = 0, nextTierBot = 0;
-const MERGE_TIME = 60;
+const MERGE_TIME = 75;
 let tLeft = 0, lastTs = 0, botTimer = 0, countT = 0, countN = 3;
 let battle = null, winner = null;
 
@@ -845,6 +869,9 @@ function stepPhysics(dt){
     if(p.x > W - p.r){ p.x = W - p.r; p.vx *= -REST; }
     if(p.y > H - BASE_H - p.r){ p.y = H - BASE_H - p.r; p.vy *= -REST; }
     if(p.y < BASE_H + p.r){ p.y = BASE_H + p.r; p.vy *= -REST; }
+    // 中央の結界は壁。自陣からはみ出さない
+    if(p.fk === 'jp' && p.y < CY + p.r){ p.y = CY + p.r; p.vy *= -REST; }
+    if(p.fk === 'mx' && p.y > CY - p.r){ p.y = CY - p.r; p.vy *= -REST; }
   }
   for(let pass = 0; pass < 2; pass++){
     for(let i = 0; i < pieces.length; i++){
@@ -864,6 +891,21 @@ function stepPhysics(dt){
     }
   }
 }
+function attraction(dt){
+  for(let i = 0; i < pieces.length; i++){
+    for(let j = i + 1; j < pieces.length; j++){
+      const a = pieces[i], b = pieces[j];
+      if(a.tier !== b.tier || a.fk !== b.fk || a.tier >= MAX_TIER) continue;
+      if(a.lock > 0 || b.lock > 0) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy), rr = a.r + b.r;
+      if(d <= rr || d > rr + 90) continue;
+      const pull = 30 * dt;
+      a.vx += dx/d * pull; a.vy += dy/d * pull;
+      b.vx -= dx/d * pull; b.vy -= dy/d * pull;
+    }
+  }
+}
 function mergePair(i, j){
   const a = pieces[i], b = pieces[j];
   const t = a.tier + 1, x = (a.x + b.x)/2, y = (a.y + b.y)/2;
@@ -880,7 +922,7 @@ function spawnTop(){
   spawn('top','mx',nextTierBot,topAimX);
   dropSfxV('muertos');
   nextTierBot = mode === 'bot' ? botTierPick() : rndTier();
-  canDropTop = false; dropCooldownTop = 0.45;
+  canDropTop = false; dropCooldownTop = 0.32;
 }
 function topInput(dt){
   const L = keys.has('a') || keys.has('arrowleft');
@@ -893,7 +935,7 @@ function topInput(dt){
 function botAct(dt){
   botTimer -= dt;
   if(botTimer > 0) return;
-  botTimer = 0.6 + Math.random()*0.35;
+  botTimer = 0.5 + Math.random()*0.3;
   const own = pieces.filter(p => p.fk==='mx' && p.tier===nextTierBot && p.y < CY);
   let x;
   if(own.length && Math.random() < 0.9) x = own[Math.floor(Math.random()*own.length)].x + rand(-14,14);
@@ -1101,7 +1143,7 @@ function drawTitle(){
   drawFruit({ x: W/2-78, y: H/2-16, r: 48, tier: 6, theme:'yokai',   wobble:1, angle:0, rage:0, gold:false }, false);
   drawFruit({ x: W/2+78, y: H/2-16, r: 48, tier: 7, theme:'muertos', wobble:3, angle:0, rage:0, gold:false }, false);
   ctx.fillStyle = '#9a8fb8'; ctx.font = '13px serif';
-  ctx.fillText('60秒で軍団を仕込み、溜めた山で敵陣へ攻め込む', W/2, H/2 + 66);
+  ctx.fillText('75秒で軍団を仕込み、溜めた山で敵陣へ攻め込む', W/2, H/2 + 66);
   drawModeBtn(BTN1, 'ひとりで挑む（Bot対戦）');
   drawModeBtn(BTN2, 'ふたりで対戦（1台・上下に分かれて）');
   drawModeBtn(BTN3, 'オンライン対戦（合言葉でつなぐ）');
@@ -1408,6 +1450,7 @@ function loop(ts){
         if(canDropTop){ topAimX = Math.max(20, Math.min(W - 20, x)); spawnTop(); }
       }
     }
+    attraction(dt);
     stepPhysics(dt);
     if(tLeft <= 0) startBattle();
   } else if(phase === 'battle'){
@@ -1433,7 +1476,7 @@ cv.addEventListener('click', () => {
     return;
   }
   if(phase === 'title'){
-    if(inBtn(BTN3, mouseX, mouseY)){ NET_ROW.hidden = false; setNetStatus('好きな合言葉を入れて「部屋を作る」→ 相手が同じ合言葉で「参加」（空欄なら自動発行）'); return; }
+    if(inBtn(BTN3, mouseX, mouseY)){ LOBBY.hidden = false; setNetStatus('好きな合言葉を入れてください（空欄で部屋を作ると自動発行）'); return; }
     if(inBtn(BTN1, mouseX, mouseY)) mode = 'bot';
     else if(inBtn(BTN2, mouseX, mouseY)) mode = '2p';
     else return;
@@ -1448,11 +1491,11 @@ cv.addEventListener('click', () => {
     spawn('bottom','jp',nextTier,mouseX);
     dropSfxV('yokai');
     nextTier = rndTier();
-    canDrop = false; dropCooldown = 0.45;
+    canDrop = false; dropCooldown = 0.32;
   }
 });
 // ---- オンライン対戦（PeerJS / ホスト権威型） ----
-const NET_ROW = document.getElementById('netRow');
+const LOBBY = document.getElementById('lobby');
 const ROOM_INPUT = document.getElementById('roomInput');
 const NET_STATUS = document.getElementById('netStatus');
 function setNetStatus(t){ NET_STATUS.textContent = t; }
@@ -1487,7 +1530,7 @@ function setupConn(conn, role){
     else if(d && d.t === 'snap') applySnap(d);
   });
   conn.on('close', () => { setNetStatus('切断されました'); net = null; mode = 'bot'; phase = 'title';
-    TOP_LABEL.textContent = '上: メキシコ死者軍（Bot）'; });
+    TOP_LABEL.textContent = '上: メキシコ死者軍（Bot）'; LOBBY.hidden = false; });
 }
 function normCode(v){ return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
 function hostRoom(){
@@ -1501,8 +1544,6 @@ function hostRoom(){
     const url = location.origin + location.pathname + '?room=' + code;
     document.getElementById('inviteUrl').textContent = url;
     document.getElementById('inviteLine').hidden = false;
-    if(navigator.clipboard) navigator.clipboard.writeText(url).then(
-      () => setNetStatus(`合言葉「${code}」— 招待リンクをコピーしました`), () => {});
   });
   peer.on('connection', conn => {
     conn.on('open', () => {
@@ -1510,6 +1551,7 @@ function hostRoom(){
       mode = 'online';
       TOP_LABEL.textContent = '上: 相手（オンライン）';
       setNetStatus(`対戦中（合言葉 ${code}）`);
+      LOBBY.hidden = true;
       ac(); startBGM(); newGame();
     });
   });
@@ -1526,15 +1568,16 @@ function joinRoom(){
     conn.on('open', () => {
       setupConn(conn, 'guest');
       mode = 'online';
-      TOP_LABEL.textContent = '上: あなた（マウスで狙ってクリック投下）';
+      TOP_LABEL.textContent = '上: あなた（タップ/クリックで投下）';
       setNetStatus(`対戦中（合言葉 ${code}）`);
+      LOBBY.hidden = true;
       ac(); startBGM();
       phase = 'count';
     });
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v6.4';
+const BUILD_VER = 'v6.6';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
@@ -1543,12 +1586,18 @@ function resetZoom(){
   setTimeout(() => vp.setAttribute('content', c), 60);
 }
 ROOM_INPUT.addEventListener('blur', resetZoom);
+document.getElementById('copyBtn').addEventListener('click', () => {
+  const url = document.getElementById('inviteUrl').textContent;
+  if(navigator.clipboard) navigator.clipboard.writeText(url).then(
+    () => setNetStatus('招待リンクをコピーしました。相手に送ってください'), () => {});
+});
+document.getElementById('lobbyBack').addEventListener('click', () => { LOBBY.hidden = true; });
 document.getElementById('hostBtn').addEventListener('click', hostRoom);
 document.getElementById('joinBtn').addEventListener('click', joinRoom);
 {
   const qRoom = new URLSearchParams(location.search).get('room');
   if(qRoom && qRoom.length >= 4){
-    NET_ROW.hidden = false;
+    LOBBY.hidden = false;
     ROOM_INPUT.value = qRoom.toUpperCase();
     setNetStatus('招待リンクから自動接続中…');
     joinRoom();
