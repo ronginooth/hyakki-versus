@@ -1104,6 +1104,9 @@ function drawTitle(){
   drawModeBtn(BTN3, 'オンライン対戦（合言葉でつなぐ）');
   ctx.fillStyle = '#6f668a'; ctx.font = '11px serif';
   ctx.fillText('（音が鳴ります）', W/2, H/2 + 228);
+  ctx.textAlign = 'right';
+  ctx.fillText(BUILD_VER, W - 10, H - 10);
+  ctx.textAlign = 'center';
 }
 const BTN1 = { x: W/2-130, y: H/2+84,  w: 260, h: 32 };
 const BTN2 = { x: W/2-130, y: H/2+124, w: 260, h: 32 };
@@ -1525,6 +1528,15 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus('接続エラー: ' + e.type));
 }
+const BUILD_VER = 'v6.2';
+function resetZoom(){
+  const vp = document.querySelector('meta[name="viewport"]');
+  if(!vp) return;
+  const c = vp.getAttribute('content');
+  vp.setAttribute('content', c + ', minimum-scale=1.0');
+  setTimeout(() => vp.setAttribute('content', c), 60);
+}
+ROOM_INPUT.addEventListener('blur', resetZoom);
 document.getElementById('hostBtn').addEventListener('click', hostRoom);
 document.getElementById('joinBtn').addEventListener('click', joinRoom);
 {
