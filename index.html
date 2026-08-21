@@ -869,9 +869,6 @@ function stepPhysics(dt){
     if(p.x > W - p.r){ p.x = W - p.r; p.vx *= -REST; }
     if(p.y > H - BASE_H - p.r){ p.y = H - BASE_H - p.r; p.vy *= -REST; }
     if(p.y < BASE_H + p.r){ p.y = BASE_H + p.r; p.vy *= -REST; }
-    // 中央の結界は壁。自陣からはみ出さない
-    if(p.fk === 'jp' && p.y < CY + p.r){ p.y = CY + p.r; p.vy *= -REST; }
-    if(p.fk === 'mx' && p.y > CY - p.r){ p.y = CY - p.r; p.vy *= -REST; }
   }
   for(let pass = 0; pass < 2; pass++){
     for(let i = 0; i < pieces.length; i++){
@@ -1577,7 +1574,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v6.6';
+const BUILD_VER = 'v6.7';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
