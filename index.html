@@ -38,7 +38,7 @@
 </div>
 <div id="netRow" hidden>
   <button id="hostBtn" type="button">部屋を作る</button>
-  <input id="roomInput" maxlength="8" placeholder="合言葉" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
+  <input id="roomInput" maxlength="8" placeholder="合言葉(自由)" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
   <button id="joinBtn" type="button">参加</button>
   <span id="netStatus"></span>
 </div>
@@ -1433,7 +1433,7 @@ cv.addEventListener('click', () => {
     return;
   }
   if(phase === 'title'){
-    if(inBtn(BTN3, mouseX, mouseY)){ NET_ROW.hidden = false; setNetStatus('部屋を作るか、相手の合言葉を入れて参加'); return; }
+    if(inBtn(BTN3, mouseX, mouseY)){ NET_ROW.hidden = false; setNetStatus('好きな合言葉を入れて「部屋を作る」→ 相手が同じ合言葉で「参加」（空欄なら自動発行）'); return; }
     if(inBtn(BTN1, mouseX, mouseY)) mode = 'bot';
     else if(inBtn(BTN2, mouseX, mouseY)) mode = '2p';
     else return;
@@ -1489,9 +1489,11 @@ function setupConn(conn, role){
   conn.on('close', () => { setNetStatus('切断されました'); net = null; mode = 'bot'; phase = 'title';
     TOP_LABEL.textContent = '上: メキシコ死者軍（Bot）'; });
 }
+function normCode(v){ return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
 function hostRoom(){
   if(!peerAvailable()){ setNetStatus('通信ライブラリを読み込めませんでした'); return; }
-  const code = makeCode();
+  const typed = normCode(ROOM_INPUT.value);
+  const code = typed.length >= 4 ? typed : makeCode();
   setNetStatus('部屋を準備中…');
   const peer = new Peer('hyakki-' + code);
   peer.on('open', () => {
@@ -1511,12 +1513,12 @@ function hostRoom(){
       ac(); startBGM(); newGame();
     });
   });
-  peer.on('error', e => setNetStatus('部屋を作れません: ' + e.type));
+  peer.on('error', e => setNetStatus(e.type === 'unavailable-id' ? `合言葉「${code}」は使用中です。別の言葉でどうぞ` : '部屋を作れません: ' + e.type));
 }
 function joinRoom(){
   if(!peerAvailable()){ setNetStatus('通信ライブラリを読み込めませんでした'); return; }
-  const code = (ROOM_INPUT.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-  if(code.length < 4){ setNetStatus('4文字の合言葉を入れてください'); return; }
+  const code = normCode(ROOM_INPUT.value);
+  if(code.length < 4){ setNetStatus('合言葉は4文字以上で入れてください'); return; }
   setNetStatus('接続中…');
   const peer = new Peer();
   peer.on('open', () => {
@@ -1530,9 +1532,9 @@ function joinRoom(){
       phase = 'count';
     });
   });
-  peer.on('error', e => setNetStatus('接続エラー: ' + e.type));
+  peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v6.3';
+const BUILD_VER = 'v6.4';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
