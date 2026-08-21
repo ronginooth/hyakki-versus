@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>百鬼あわせ 対戦プロト v6 — 日本妖怪軍 vs メキシコ死者軍</title>
 <style>
   html,body{margin:0;padding:0;background:#0b0a14;color:#e8e2d0;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
@@ -20,7 +20,7 @@
   #netRow{display:flex;gap:8px;margin:2px 0 6px;font-size:12px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:96vw;}
   #inviteLine{font-size:11px;color:#9a8fb8;max-width:96vw;word-break:break-all;margin:0 0 4px;}
   #inviteLine b{color:#c9b98a;}
-  #netRow input{width:100px;background:#12101e;border:1px solid #3a3450;color:#e8e2d0;border-radius:6px;padding:3px 8px;font-family:inherit;text-transform:uppercase;letter-spacing:.2em;}
+  #netRow input{width:110px;background:#12101e;border:1px solid #3a3450;color:#e8e2d0;border-radius:6px;padding:5px 8px;font-family:inherit;text-transform:uppercase;letter-spacing:.15em;font-size:16px;}
   #netRow button{background:#1c1830;color:#c9b98a;border:1px solid #3a3450;border-radius:6px;font-size:12px;padding:3px 10px;cursor:pointer;font-family:inherit;}
   #netStatus{color:#9a8fb8;}
 </style>
@@ -35,7 +35,7 @@
 </div>
 <div id="netRow" hidden>
   <button id="hostBtn" type="button">部屋を作る</button>
-  <input id="roomInput" maxlength="4" placeholder="合言葉">
+  <input id="roomInput" maxlength="8" placeholder="合言葉" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
   <button id="joinBtn" type="button">参加</button>
   <span id="netStatus"></span>
 </div>
@@ -1508,7 +1508,7 @@ function hostRoom(){
 }
 function joinRoom(){
   if(!peerAvailable()){ setNetStatus('通信ライブラリを読み込めませんでした'); return; }
-  const code = (ROOM_INPUT.value || '').trim().toUpperCase();
+  const code = (ROOM_INPUT.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
   if(code.length < 4){ setNetStatus('4文字の合言葉を入れてください'); return; }
   setNetStatus('接続中…');
   const peer = new Peer();
