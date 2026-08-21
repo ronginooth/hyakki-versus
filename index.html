@@ -7,7 +7,10 @@
 <style>
   html,body{margin:0;padding:0;background:#0b0a14;color:#e8e2d0;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
     display:flex;flex-direction:column;align-items:center;min-height:100vh;user-select:none;
-    width:100%;overflow-x:hidden;}
+    width:100%;overflow-x:hidden;
+    -webkit-user-select:none;-webkit-touch-callout:none;}
+  *{-webkit-user-select:none;-webkit-touch-callout:none;user-select:none;}
+  input{-webkit-user-select:text;user-select:text;}
   h1{font-size:14px;font-weight:normal;letter-spacing:.3em;margin:8px 0 4px;color:#c9b98a;}
   #hud{display:flex;gap:8px 14px;margin:4px 0 6px;font-size:12px;color:#9a8fb8;align-items:center;flex-wrap:wrap;justify-content:center;max-width:96vw;}
   #hud b{color:#e8e2d0;}
@@ -1418,6 +1421,7 @@ function loop(ts){
 }
 
 // ---- 入力 ----
+cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('mousemove', e => {
   const rect = cv.getBoundingClientRect();
   mouseX = (e.clientX - rect.left) * (W/rect.width);
@@ -1528,7 +1532,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus('接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v6.2';
+const BUILD_VER = 'v6.3';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
