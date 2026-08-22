@@ -847,6 +847,7 @@ function resetShrines(){ shrines = SHRINE_DEF.map(d => ({ ...d, y: CY, meter: 0,
 function shrineCount(fk){ return shrines.filter(sh => sh.owner === fk).length; }                                     // 城の高さ（横全面）
 
 let phase = 'title';
+let zones = [];                                       // 燃える床など持続ゾーン
 let pieces = [], units = [], projs = [], effects = [], floats = [];
 let mouseX = W/2, mouseY = H*0.75, canDrop = true, dropCooldown = 0;
 let mode = 'bot';                                      // 'bot' | '2p'
@@ -871,7 +872,7 @@ const rndTier = () => Math.floor(Math.random() * 3);
 const botTierPick = () => Math.random() < 0.2 ? 3 : rndTier();   // Bot強化: 2割で提灯級を直接投下
 
 function newGame(){
-  pieces = []; units = []; projs = []; effects = []; floats = [];
+  pieces = []; units = []; projs = []; effects = []; floats = []; zones = [];
   tLeft = MERGE_TIME; botTimer = 0.5; winner = null; battle = null;
   nextTier = rndTier(); nextTierBot = botTierPick();
   countN = 3; countT = 0;
@@ -1062,9 +1063,103 @@ function fireShot(u, tx, ty, spreads){
   }
   effects.push({ kind:'muzzle', x: u.x, y: u.y, r: u.r, t: 0, fk: u.fk });
 }
+// ---- 固有大技（キャラ×tier。派手演出つき） ----
+function petrifyGlare(u){
+  const targets = units.filter(v => v.fk !== u.fk && !v.dead && Math.hypot(v.x-u.x, v.y-u.y) < 170)
+    .sort((a,b) => Math.hypot(a.x-u.x,a.y-u.y) - Math.hypot(b.x-u.x,b.y-u.y)).slice(0, 3);
+  if(!targets.length) return false;
+  for(const v of targets){
+    v.stone = 2.6; v.jump = null;
+    effects.push({ kind:'stonewave', x: v.x, y: v.y, r: v.r + 14, t: 0 });
+  }
+  effects.push({ kind:'banner', t: 0.9, text: '石化のにらみ!', fk: u.fk });
+  try{ bellTone(1244, ac().currentTime, 1.2, 0.05); }catch(e){}
+  juice(0.08, 6);
+  return true;
+}
+function flameSweep(u){
+  const [foe] = nearestFoe(u);
+  const tx = foe ? foe.x : u.x, ty = foe ? foe.y : wallY(u.fk === 'jp' ? 'mx' : 'jp');
+  const base = Math.atan2(ty - u.y, tx - u.x);
+  for(const sp of [-0.45, -0.22, 0, 0.22, 0.45]){
+    projs.push({ x: u.x, y: u.y, vx: Math.cos(base+sp)*210, vy: Math.sin(base+sp)*210,
+                 fk: u.fk, dmg: Math.round(u.atk*0.8), style: 'shot',
+                 col: '#ff8a3a', glyph: '火', ttl: 1.0 });
+  }
+  const zx = u.x + Math.cos(base)*110, zy = u.y + Math.sin(base)*110;
+  zones.push({ x: zx, y: zy, r: 56, ttl: 3, fk: u.fk, acc: 0 });
+  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: '業火!', col: '#ff8a3a' });
+  boom(); juice(0.06, 5);
+  return true;
+}
+function pinwheelCharge(u){
+  const [foe] = nearestFoe(u);
+  const dir = u.fk === 'jp' ? -1 : 1;
+  const tx = foe ? foe.x : u.x, ty = foe ? foe.y : u.y + dir * 150;
+  u.chain = 2;
+  u.jump = { x0: u.x, y0: u.y, tx, ty, t: 0, dur: 0.42, amp: 60 };
+  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: '風車大進軍!', col: '#8fd0f0' });
+  thump(0.15); juice(0.04, 4);
+  return true;
+}
+function foxBeam(u){
+  const foeFk = u.fk === 'jp' ? 'mx' : 'jp';
+  for(const v of units){
+    if(v.fk === u.fk || v.dead) continue;
+    if(Math.abs(v.x - u.x) < 44) hurt(v, Math.round(u.atk * 2), u.fk, null);
+  }
+  for(const sh of shrines){
+    if(sh.owner && sh.owner !== u.fk && Math.abs(sh.x - u.x) < 44) hurtShrine(sh, 40, u.fk);
+  }
+  hurtBase(foeFk, 30, u.x);
+  effects.push({ kind:'beam', x: u.x, t: 0, fk: u.fk });
+  effects.push({ kind:'banner', t: 0, text: '九陽ノ大火', fk: u.fk });
+  trumpetFanfare(); boom(); juice(0.15, 12);
+  return true;
+}
+function candleLight(u){
+  let healed = 0;
+  for(const v of units){
+    if(v.fk !== u.fk || v.dead || v.hp >= v.maxhp) continue;
+    if(Math.hypot(v.x-u.x, v.y-u.y) < 150){ v.hp = Math.min(v.maxhp, v.hp + 30); healed++; }
+  }
+  battle.base[u.fk] = Math.min(600, battle.base[u.fk] + 25);
+  effects.push({ kind:'ripple', x: u.x, y: u.y, r: 150, t: 0 });
+  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: `大灯! 城+25`, col: '#8ee8a0' });
+  try{ bellTone(1244, ac().currentTime, 1.0, 0.04); }catch(e){}
+  juice(0.04, 3);
+  return true;
+}
+function catrinaCharm(u){
+  const target = units.filter(v => v.fk !== u.fk && !v.dead && v.tier <= 6 && Math.hypot(v.x-u.x,v.y-u.y) < 190)
+    .sort((a,b) => b.tier - a.tier)[0];
+  if(!target) return false;
+  target.fk = u.fk; target.dir = -target.dir; target.guard = false; target.fighting = false;
+  effects.push({ kind:'hearts', x: target.x, y: target.y, t: 0 });
+  effects.push({ kind:'banner', t: 0, text: `${THEMES[target.theme][target.tier].name}、寝返り!`, fk: u.fk });
+  trumpetFanfare(); juice(0.1, 7);
+  return true;
+}
+function kingSummon(u){
+  for(const dx of [-46, 0, 46]){
+    const m = makeBattleUnit(u.fk, 2, u.x + dx, u.y + (u.fk === 'jp' ? 26 : -26));
+    units.push(m);
+    effects.push({ kind:'pop', x: m.x, y: m.y, r: m.r + 10, t: 0, fk: u.fk });
+  }
+  effects.push({ kind:'banner', t: 0, text: '軍勢召喚!', fk: u.fk });
+  trumpetFanfare(); thump(0.24); juice(0.08, 6);
+  return true;
+}
+const SIG = {
+  yokai:   { 2: petrifyGlare, 3: flameSweep, 4: pinwheelCharge, 10: foxBeam },
+  muertos: { 1: candleLight, 7: catrinaCharm, 10: kingSummon },
+};
+
 // 必殺の手動発動（タップ／ゲスト送信／2PのSキー／BotAI）
 function triggerSpecial(u){
   if(!u || u.dead || u.spCd > 0 || u.jump) return false;
+  const sig = SIG[u.theme] && SIG[u.theme][u.tier];
+  if(sig){ if(sig(u)){ u.spCd = 7; return true; } return false; }
   u.spCd = 7;
   const [foe] = nearestFoe(u);
   if(u.style === 'bomb'){ bombExplode(u, 80); return true; }
@@ -1288,10 +1383,24 @@ function battleStep(dt){
       if(ready.length) triggerSpecial(ready[Math.floor(Math.random()*ready.length)]);
     }
   }
+  // 燃える床
+  for(const z of zones){
+    z.ttl -= dt; z.acc += dt;
+    if(z.acc >= 0.5){
+      z.acc = 0;
+      for(const v of units){
+        if(v.fk === z.fk || v.dead) continue;
+        if(Math.hypot(v.x - z.x, v.y - z.y) < z.r) hurt(v, 5, z.fk, null);
+      }
+    }
+  }
+  zones = zones.filter(z => z.ttl > 0);
+
   for(const u of units){
     if(u.dead) continue;
     u.shake = Math.max(0, u.shake - dt*3);
     if(u.rage > 0) u.rage = Math.max(0, u.rage - dt);
+    if(u.stone > 0){ u.stone -= dt; continue; }       // 石像は何もできない
     u.cd -= dt; u.spCd -= dt;
     u.boost = Math.max(0, u.boost - dt);
 
@@ -1309,6 +1418,13 @@ function battleStep(dt){
           if(Math.hypot(v.x-u.x, v.y-u.y) < u.r + v.r + 26) hurt(v, Math.round(u.atk*1.6), u.fk, u.style);
         }
         effects.push({ kind:'ring', x: u.x, y: u.y, r: u.r + 20, t: 0, fk: u.fk });
+        if(u.chain > 0){                              // 風車大進軍: 続けて跳ぶ
+          u.chain--;
+          const [nf] = nearestFoe(u);
+          const dir = u.fk === 'jp' ? -1 : 1;
+          const tx = nf ? nf.x : u.x, ty = nf ? nf.y : u.y + dir * 150;
+          u.jump = { x0: u.x, y0: u.y, tx, ty, t: 0, dur: 0.42, amp: 60 };
+        }
       }
       continue;
     }
@@ -1331,10 +1447,23 @@ function battleStep(dt){
           u.y += (gf.y - u.y)/d * SPD(u) * 1.1 * dt;
         }
       } else {
-        u.x += u.dirP * SPD(u) * 0.55 * dt;
-        if(u.x > u.postX + 100) u.dirP = -1;
-        if(u.x < u.postX - 100) u.dirP = 1;
-        u.y += (u.postY - u.y) * 2.5 * dt;
+        let threat = null, td = 1e9;
+        for(const v of units){
+          if(v.fk === u.fk || v.dead) continue;
+          const inMyHalf = u.fk === 'jp' ? v.y > CY : v.y < CY;
+          if(!inMyHalf) continue;
+          const d = Math.abs(v.x - u.postX);
+          if(d < 210 && d < td){ td = d; threat = v; }
+        }
+        if(threat){
+          u.x += Math.sign(threat.x - u.x) * SPD(u) * 0.9 * dt;   // 敵の来た方向へ滑って護る
+          u.y += (u.postY - u.y) * 2.5 * dt;
+        } else {
+          u.x += u.dirP * SPD(u) * 0.55 * dt;
+          if(u.x > u.postX + 100) u.dirP = -1;
+          if(u.x < u.postX - 100) u.dirP = 1;
+          u.y += (u.postY - u.y) * 2.5 * dt;
+        }
       }
       u.x = Math.max(u.r, Math.min(W - u.r, u.x));
       continue;
@@ -1897,6 +2026,9 @@ function drawBattle(){
     ctx.beginPath(); ctx.ellipse(u.x, u.y + u.r*0.82, u.r*0.95, u.r*0.3, 0, 0, 7); ctx.fill();
     ctx.strokeStyle = `rgba(${tc},0.65)`; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.ellipse(u.x, u.y + u.r*0.82, u.r*0.95, u.r*0.3, 0, 0, 7); ctx.stroke();
+    if(u.stone > 0){
+      ctx.filter = 'grayscale(1) brightness(0.82)';
+    }
     if(phase === 'battle' && u.spCd <= 0 && humanSides.includes(u.fk)){
       ctx.strokeStyle = `rgba(212,164,61,${0.5 + 0.3*Math.sin(time*5 + u.wobble)})`;
       ctx.lineWidth = 2; ctx.setLineDash([5,4]);
@@ -1904,7 +2036,21 @@ function drawBattle(){
     }
     drawFruit({ x: u.x+sx, y: u.y+sy, r: u.r, tier: u.tier, theme: u.theme,
                 wobble: u.wobble, angle: u.angle, rage: u.rage, gold: false }, false);
+    ctx.filter = 'none';
     bar(u.x - u.r*0.8, u.y - u.r - 9, u.r*1.6, u.hp, u.maxhp, u.fk==='jp' ? '#5588c4' : '#c46a30');
+  }
+  // 燃える床
+  for(const z of zones){
+    const fl = 0.55 + 0.3 * Math.sin(time * 9 + z.x);
+    const zg = ctx.createRadialGradient(z.x, z.y, 4, z.x, z.y, z.r);
+    zg.addColorStop(0, `rgba(255,170,70,${0.4*fl})`);
+    zg.addColorStop(0.7, `rgba(220,80,30,${0.22*fl})`);
+    zg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = zg;
+    ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(255,200,120,${0.6*fl})`;
+    ctx.font = '13px serif'; ctx.textAlign = 'center';
+    for(const [ox, oy] of [[-18, 6], [12, -10], [2, 16]]) ctx.fillText('火', z.x + ox, z.y + oy);
   }
   for(const p of projs){
     if(p.vx || p.vy){
@@ -1976,6 +2122,39 @@ function drawFx(){
       ctx.strokeStyle = `rgba(232,220,190,${0.8*(1-k)})`;
       ctx.lineWidth = 3.5 * (1-k) + 1;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.5 + k*1.4), 0, 7); ctx.stroke();
+    } else if(e.kind === 'beam'){
+      const k = e.t / 0.55;
+      const wdt = 46 * (1 - k * 0.4);
+      const grad = ctx.createLinearGradient(e.x - wdt, 0, e.x + wdt, 0);
+      const cc = e.fk === 'jp' ? '120,180,255' : '255,170,90';
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.35, `rgba(${cc},${0.55*(1-k)})`);
+      grad.addColorStop(0.5, `rgba(255,250,220,${0.95*(1-k)})`);
+      grad.addColorStop(0.65, `rgba(${cc},${0.55*(1-k)})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(e.x - wdt, 0, wdt * 2, H);
+    } else if(e.kind === 'ripple'){
+      for(const m2 of [0.4, 0.7, 1]){
+        const k = Math.min(1, e.t / 0.8 / m2);
+        ctx.strokeStyle = `rgba(142,232,160,${0.8*(1-k)})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.r * k * m2, 0, 7); ctx.stroke();
+      }
+    } else if(e.kind === 'hearts'){
+      ctx.font = '16px serif'; ctx.textAlign = 'center';
+      for(let i = 0; i < 6; i++){
+        const a = i * 1.05, rr2 = 14 + e.t * 46;
+        ctx.globalAlpha = Math.max(0, 1 - e.t);
+        ctx.fillStyle = '#ff8ab8';
+        ctx.fillText('♥', e.x + Math.cos(a) * rr2, e.y + Math.sin(a) * rr2 - e.t * 30);
+      }
+      ctx.globalAlpha = 1;
+    } else if(e.kind === 'stonewave'){
+      const k = e.t / 0.5;
+      ctx.strokeStyle = `rgba(180,180,190,${0.9*(1-k)})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r * (0.6 + k), 0, 7); ctx.stroke();
     } else if(e.kind === 'banner'){
       ctx.globalAlpha = Math.min(1, 1.8 - e.t) * 0.95;
       ctx.fillStyle = 'rgba(11,10,20,0.55)';
@@ -2008,7 +2187,7 @@ function loop(ts){
   shakeAmp = Math.max(0, shakeAmp - realDt * 14);
   time += realDt;
   for(const e of effects) e.t += dt;
-  effects = effects.filter(e => e.t < (e.kind==='boom' ? 0.45 : e.kind==='muzzle' ? 0.2 : e.kind==='banner' ? 1.8 : e.kind==='spark' ? 0.22 : e.kind==='slash' ? 0.24 : e.kind==='ring' ? 0.35 : 0.4));
+  effects = effects.filter(e => e.t < (e.kind==='boom' ? 0.45 : e.kind==='muzzle' ? 0.2 : e.kind==='banner' ? 1.8 : e.kind==='spark' ? 0.22 : e.kind==='slash' ? 0.24 : e.kind==='ring' ? 0.35 : e.kind==='beam' ? 0.55 : e.kind==='ripple' ? 0.8 : e.kind==='hearts' ? 1.0 : e.kind==='stonewave' ? 0.5 : 0.4));
   for(const f of floats) f.t += dt;
   floats = floats.filter(f => f.t < 0.8);
   gazeX = mouseX; gazeY = mouseY; dropX = mouseX;
@@ -2118,9 +2297,10 @@ function makeSnap(){
   return { t:'snap', phase, tLeft: Math.max(0, tLeft), countN, countT, winner, nextTop: nextTierBot,
     shrines: shrines.map(sh => [sh.owner === 'jp' ? 1 : sh.owner === 'mx' ? 2 : 0, Math.round(sh.meter), Math.round(sh.hp)]),
     hyakki: [Math.round(hyakki.jp), Math.round(hyakki.mx)],
+    zones: zones.map(z => [Math.round(z.x), Math.round(z.y), Math.round(z.r), z.fk === 'jp' ? 0 : 1]),
     base: battle ? battle.base : null,
     pieces: pieces.map(p => [Math.round(p.x), Math.round(p.y), p.tier, p.fk==='jp'?0:1]),
-    units: units.map(u => [Math.round(u.x), Math.round(u.y), u.tier, u.fk==='jp'?0:1, u.hp, u.maxhp, Math.round((u.angle||0)*100), u.rage>0?1:0, u.spCd<=0?1:0]),
+    units: units.map(u => [Math.round(u.x), Math.round(u.y), u.tier, u.fk==='jp'?0:1, u.hp, u.maxhp, Math.round((u.angle||0)*100), u.rage>0?1:0, u.spCd<=0?1:0, u.stone>0?1:0]),
     projs: projs.map(p => [Math.round(p.x), Math.round(p.y), p.col, p.glyph]),
     effects: effects.map(e => [e.kind, Math.round(e.x||0), Math.round(e.y||0), Math.round(e.r||0), e.t, e.fk, e.text||null, e.ang||0, e.big?1:0]),
     floats: floats.map(f => [Math.round(f.x), Math.round(f.y), f.text, f.col, f.t]),
@@ -2130,11 +2310,12 @@ function applySnap(s){
   phase = s.phase; tLeft = s.tLeft; countN = s.countN; countT = s.countT; winner = s.winner; nextTierBot = s.nextTop;
   battle = s.base ? { base: s.base, t: 0 } : null;
   if(s.hyakki){ hyakki.jp = s.hyakki[0]; hyakki.mx = s.hyakki[1]; }
+  if(s.zones) zones = s.zones.map(([x,y,r,f]) => ({ x, y, r, fk: f ? 'mx' : 'jp', ttl: 1, acc: 0 }));
   if(s.shrines && shrines.length === s.shrines.length){
     s.shrines.forEach(([o, m, hp], i) => { shrines[i].owner = o === 1 ? 'jp' : o === 2 ? 'mx' : null; shrines[i].meter = m; shrines[i].hp = hp == null ? SHRINE_HP : hp; });
   }
   pieces = s.pieces.map(([x,y,t,f]) => ({ x, y, r: R_OF(t), tier: t, fk: f?'mx':'jp', theme: f?'muertos':'yokai', wobble: (x*7+t)%6, angle: 0, rage: 0, gold: false }));
-  units = s.units.map(([x,y,t,f,hp,maxhp,ang,rg,rd]) => ({ x, y, r: R_OF(t), tier: t, fk: f?'mx':'jp', theme: f?'muertos':'yokai', hp, maxhp, wobble: (x*3+t)%6, angle: ang/100, rage: rg, shake: 0, spCd: rd ? 0 : 9 }));
+  units = s.units.map(([x,y,t,f,hp,maxhp,ang,rg,rd,st]) => ({ x, y, r: R_OF(t), tier: t, fk: f?'mx':'jp', theme: f?'muertos':'yokai', hp, maxhp, wobble: (x*3+t)%6, angle: ang/100, rage: rg, shake: 0, spCd: rd ? 0 : 9, stone: st ? 1 : 0 }));
   projs = s.projs.map(([x,y,col,glyph]) => ({ x, y, col, glyph }));
   effects = s.effects.map(([kind,x,y,r,t,fk,text,ang,big]) => ({ kind, x, y, r, t, fk, text, ang, big: !!big }));
   floats = s.floats.map(([x,y,text,col,t]) => ({ x, y, text, col, t }));
@@ -2194,7 +2375,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v8.11';
+const BUILD_VER = 'v9.0';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
@@ -2246,7 +2427,7 @@ window.__hv = { get phase(){return phase}, set phase(v){phase=v},
   set tLeft(v){tLeft=v}, spawn, botAct, stepPhysics, startBattle, battleStep, draw, newGame, spawnTop,
   makeSnap, applySnap, hostRoom, joinRoom, get net(){return net}, get remoteDrops(){return remoteDrops},
   get shrines(){return shrines}, updateShrines,
-  summonAt, summonSpots, summonTierFor, get hyakki(){return hyakki}, set hyakkiJp(v){hyakki.jp=v}, set hyakkiMx(v){hyakki.mx=v},
+  summonAt, summonSpots, summonTierFor, triggerSpecial, get zones(){return zones}, get hyakki(){return hyakki}, set hyakkiJp(v){hyakki.jp=v}, set hyakkiMx(v){hyakki.mx=v},
   get mode(){return mode}, set mode(v){mode=v}, set topAimX(v){topAimX=v},
   harikoAtlases, imageReady };
 })();
