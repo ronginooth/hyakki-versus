@@ -1535,11 +1535,13 @@ function drawCastleJP(){
     ctx.fillStyle = lg;
     ctx.beginPath(); ctx.arc(x, y0 + 9, 7, 0, 7); ctx.fill();
   }
-  // 天守閣（生成スプライト）
+  // 天守閣（生成スプライト・三棟構え、中央がデカい）
   const cImg = buildingImages.castleJp;
   if(imageReady(cImg)){
-    const cw = 118, ch = cw * cImg.naturalHeight / cImg.naturalWidth;
-    ctx.drawImage(cImg, W/2 - cw/2, H - 12 - ch, cw, ch);
+    for(const [bx, cw] of [[74, 64], [W/2, 122], [W - 74, 64]]){
+      const ch = cw * cImg.naturalHeight / cImg.naturalWidth;
+      ctx.drawImage(cImg, bx - cw/2, H - 12 - ch, cw, ch);
+    }
   }
   castleCracks(hp, y0 + 12, BASE_H - 12, false);
 }
@@ -1552,12 +1554,18 @@ function drawCastleMX(){
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, 18); ctx.clip();
   stoneJoints(0, 18, 8);
   ctx.restore();
-  // 祭壇ピラミッド（生成スプライト）
+  // 祭壇ピラミッド（生成スプライト・上下逆さに吊り下がる三棟、中央がデカい）
   const cx = W / 2;
   const pImg = buildingImages.castleMx;
   if(imageReady(pImg)){
-    const pw = 126, ph = pw * pImg.naturalHeight / pImg.naturalWidth;
-    ctx.drawImage(pImg, cx - pw/2, 10, pw, ph);
+    for(const [bx, pw] of [[74, 68], [cx, 130], [W - 74, 68]]){
+      const ph = pw * pImg.naturalHeight / pImg.naturalWidth;
+      ctx.save();
+      ctx.translate(bx, 10 + ph/2);
+      ctx.scale(1, -1);
+      ctx.drawImage(pImg, -pw/2, -ph/2, pw, ph);
+      ctx.restore();
+    }
   }
   // パペルピカド（切り紙の旗）
   const pCols = ['#e05c8a', '#3ab0c8', '#ffd24a', '#7ab05a'];
@@ -1879,7 +1887,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v8.3';
+const BUILD_VER = 'v8.4';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
