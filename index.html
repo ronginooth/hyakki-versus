@@ -987,9 +987,10 @@ function makeBattleUnit(fk, tier, x, y){
 function startBattle(){
   units = pieces.map(p => { const u = makeBattleUnit(p.fk, p.tier, p.x, p.y); u.wobble = p.wobble; return u; });
   pieces = [];
-  battle = { base: { jp: 200, mx: 200 }, t: 0, reinf: { jp: 8, mx: 8 } };
+  battle = { base: { jp: 600, mx: 600 }, t: 0, reinf: { jp: 8, mx: 8 } };
   phase = 'battle';
   TIMER_EL.textContent = '決戦！ 自分の妖怪をタップで必殺';
+  effects.push({ kind:'banner', t: 0, text: '日本妖怪軍 vs メキシコ死者軍', fk: null });
   kaisenSfx();
 }
 const wallY = fk => fk === 'jp' ? H - BASE_H/2 : BASE_H/2;
@@ -1247,6 +1248,8 @@ function reinforce(dt){
 }
 function battleStep(dt){
   battle.t += dt;
+  battle.base.jp = Math.min(600, battle.base.jp + 0.4 * dt);
+  battle.base.mx = Math.min(600, battle.base.mx + 0.4 * dt);
   if(!battle.ushi && battle.t > 90){
     battle.ushi = true;
     effects.push({ kind:'banner', t: 0, text: '丑三つ時 — 百鬼ゲージ倍速', fk: null });
@@ -1491,10 +1494,11 @@ function draw(){
   if(phase === 'title'){ drawTitle(); return; }
   drawZones();
   if(phase === 'count'){ drawPieces(); drawCount(); return; }
-  if(phase === 'merge'){ drawPieces(); drawAim(); drawLastCount(); drawFx(); drawSummonUI(); return; }
+  if(phase === 'merge'){ drawPieces(); drawAim(); drawLastCount(); drawFx(); drawSummonUI(); drawMatchLabels(); return; }
   drawBattle();
   drawUshiTint();
   drawSummonUI();
+  drawMatchLabels();
 }
 function drawTitle(){
   ctx.fillStyle = '#12101e'; ctx.fillRect(0,0,W,H);
@@ -1538,6 +1542,22 @@ function drawZones(){
   drawShrines();
 }
 const BTN_SUMMON = { x: 42, y: H - BASE_H - 60, r: 25 };
+function drawMatchLabels(){
+  if(phase !== 'merge' && phase !== 'battle') return;
+  const myFk = (net && net.role === 'guest') ? 'mx' : 'jp';
+  const foeName = mode === 'bot' ? 'Bot' : mode === '2p' ? '2P' : '相手';
+  const tagMy  = myFk === 'jp' ? '日本妖怪軍' : 'メキシコ死者軍';
+  const tagFoe = myFk === 'jp' ? 'メキシコ死者軍' : '日本妖怪軍';
+  ctx.save();
+  ctx.font = '10.5px sans-serif'; ctx.textAlign = 'right';
+  const myY  = myFk === 'jp' ? H - BASE_H - 8 : BASE_H + 16;
+  const foeY = myFk === 'jp' ? BASE_H + 16 : H - BASE_H - 8;
+  ctx.fillStyle = myFk === 'jp' ? '#8fb4e0' : '#e0a878';
+  ctx.fillText(`あなた — ${tagMy}`, W - 8, myY);
+  ctx.fillStyle = myFk === 'jp' ? '#e0a878' : '#8fb4e0';
+  ctx.fillText(`${foeName} — ${tagFoe}`, W - 8, foeY);
+  ctx.restore();
+}
 function drawSummonUI(){
   if(phase !== 'merge' && phase !== 'battle') return;
   const myFk = (net && net.role === 'guest') ? 'mx' : 'jp';
@@ -1682,8 +1702,8 @@ function drawBaseBands(){
   drawCastleMX();
   drawCastleJP();
   if(battle){
-    fullBar(0, BASE_H + 3, battle.base.mx, 200, '#c46a30');
-    fullBar(0, H - BASE_H - 6, battle.base.jp, 200, '#5588c4');
+    fullBar(0, BASE_H + 3, battle.base.mx, 600, '#c46a30');
+    fullBar(0, H - BASE_H - 6, battle.base.jp, 600, '#5588c4');
   }
 }
 function stoneJoints(y0, h, step){
@@ -1851,6 +1871,12 @@ function drawBattle(){
   for(const u of units){
     const sx = u.shake > 0 ? rand(-4,4)*u.shake : 0;
     const sy = u.shake > 0 ? rand(-3,3)*u.shake : 0;
+    // 敵味方が一目で分かる足元の軍色サークル
+    const tc = u.fk === 'jp' ? '85,136,196' : '196,106,48';
+    ctx.fillStyle = `rgba(${tc},0.28)`;
+    ctx.beginPath(); ctx.ellipse(u.x, u.y + u.r*0.82, u.r*0.95, u.r*0.3, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${tc},0.65)`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(u.x, u.y + u.r*0.82, u.r*0.95, u.r*0.3, 0, 0, 7); ctx.stroke();
     if(phase === 'battle' && u.spCd <= 0 && humanSides.includes(u.fk)){
       ctx.strokeStyle = `rgba(212,164,61,${0.5 + 0.3*Math.sin(time*5 + u.wobble)})`;
       ctx.lineWidth = 2; ctx.setLineDash([5,4]);
@@ -2148,7 +2174,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v8.8';
+const BUILD_VER = 'v8.9';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
