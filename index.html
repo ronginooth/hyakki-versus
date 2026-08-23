@@ -1620,17 +1620,18 @@ function battleStep(dt){
 
   if(battle.base.jp <= 0 || battle.base.mx <= 0 ||
      (!units.some(u=>u.fk==='jp') && !units.some(u=>u.fk==='mx')) || battle.t > 150){
-    if(battle.base.jp <= 0 && battle.base.mx <= 0) winner = 'draw';
-    else if(battle.base.mx <= 0) winner = 'jp';
-    else if(battle.base.jp <= 0) winner = 'mx';
+    const sj = shrineCount('jp'), sm = shrineCount('mx');
+    const js = units.filter(u=>u.fk==='jp').length, ms = units.filter(u=>u.fk==='mx').length;
+    const hj = Math.round(battle.base.jp), hm = Math.round(battle.base.mx);
+    if(battle.base.jp <= 0 && battle.base.mx <= 0){ winner = 'draw'; battle.reason = '両軍の城が同時に陥落'; }
+    else if(battle.base.mx <= 0){ winner = 'jp'; battle.reason = 'メキシコの城を陥落させた!'; }
+    else if(battle.base.jp <= 0){ winner = 'mx'; battle.reason = '日本の城を陥落させた!'; }
     else {
-      const sj = shrineCount('jp'), sm = shrineCount('mx');
-      if(sj !== sm) winner = sj > sm ? 'jp' : 'mx';
-      else {
-        const js = units.filter(u=>u.fk==='jp').length, ms = units.filter(u=>u.fk==='mx').length;
-        winner = js === ms ? (battle.base.jp === battle.base.mx ? 'draw'
-                  : (battle.base.jp > battle.base.mx ? 'jp' : 'mx')) : (js > ms ? 'jp' : 'mx');
-      }
+      const score = `祠 ${sj}対${sm} ／ 残存 ${js}対${ms} ／ 城 ${hj}対${hm}`;
+      if(sj !== sm){ winner = sj > sm ? 'jp' : 'mx'; battle.reason = `時間切れ判定: 祠の保有数で勝ち（${score}）`; }
+      else if(js !== ms){ winner = js > ms ? 'jp' : 'mx'; battle.reason = `時間切れ判定: 残存妖怪の数で勝ち（${score}）`; }
+      else if(hj !== hm){ winner = hj > hm ? 'jp' : 'mx'; battle.reason = `時間切れ判定: 城の残りHPで勝ち（${score}）`; }
+      else { winner = 'draw'; battle.reason = `時間切れ判定: 完全に互角（${score}）`; }
     }
     phase = 'result';
     victorySfx(winner);
@@ -2071,6 +2072,10 @@ function drawBattle(){
     ctx.fillStyle = '#c9b98a'; ctx.font = '26px serif';
     const msg = winner==='draw' ? '相打ち' : `${FACTION[winner].name}の勝利`;
     ctx.fillText(msg, W/2, H/2 - 58);
+    if(battle && battle.reason){
+      ctx.fillStyle = '#9a8fb8'; ctx.font = '12.5px sans-serif';
+      ctx.fillText(battle.reason, W/2, H/2 - 34);
+    }
     if(winner !== 'draw'){
       drawFruit({ x: W/2, y: H/2+22, r: 50, tier: winner==='jp'?6:7, theme: FACTION[winner].theme,
                   wobble:2, angle:0, rage:0, gold:true }, false);
@@ -2230,6 +2235,11 @@ function loop(ts){
     if(tLeft <= 0) startBattle();
   } else if(phase === 'battle'){
     battleStep(dt);
+    if(battle){
+      TIMER_EL.textContent = battle.t > 120 ? `判定まで ${Math.max(0, Math.ceil(150 - battle.t))} 秒（祠→残存→城HPの順で判定）`
+        : battle.ushi ? '丑三つ時!! 百鬼ゲージ倍速'
+        : '決戦！ 光る妖怪をタップで大技';
+    }
   }
   ctx.save();
   if(shakeAmp > 0.3) ctx.translate(rand(-shakeAmp, shakeAmp), rand(-shakeAmp, shakeAmp));
@@ -2294,7 +2304,7 @@ function makeCode(){ let c = ''; for(let i = 0; i < 4; i++) c += CODE_CHARS[Math
 function peerAvailable(){ return typeof Peer !== 'undefined'; }
 
 function makeSnap(){
-  return { t:'snap', phase, tLeft: Math.max(0, tLeft), countN, countT, winner, nextTop: nextTierBot,
+  return { t:'snap', phase, tLeft: Math.max(0, tLeft), countN, countT, winner, nextTop: nextTierBot, reason: battle ? battle.reason : null,
     shrines: shrines.map(sh => [sh.owner === 'jp' ? 1 : sh.owner === 'mx' ? 2 : 0, Math.round(sh.meter), Math.round(sh.hp)]),
     hyakki: [Math.round(hyakki.jp), Math.round(hyakki.mx)],
     zones: zones.map(z => [Math.round(z.x), Math.round(z.y), Math.round(z.r), z.fk === 'jp' ? 0 : 1]),
@@ -2308,7 +2318,7 @@ function makeSnap(){
 }
 function applySnap(s){
   phase = s.phase; tLeft = s.tLeft; countN = s.countN; countT = s.countT; winner = s.winner; nextTierBot = s.nextTop;
-  battle = s.base ? { base: s.base, t: 0 } : null;
+  battle = s.base ? { base: s.base, t: 0, reason: s.reason } : null;
   if(s.hyakki){ hyakki.jp = s.hyakki[0]; hyakki.mx = s.hyakki[1]; }
   if(s.zones) zones = s.zones.map(([x,y,r,f]) => ({ x, y, r, fk: f ? 'mx' : 'jp', ttl: 1, acc: 0 }));
   if(s.shrines && shrines.length === s.shrines.length){
@@ -2375,7 +2385,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v9.0';
+const BUILD_VER = 'v9.1';
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
