@@ -87,7 +87,7 @@
 <div id="hud">
   <span id="topLabel">上: メキシコ死者軍（Bot）</span>
   <span><b id="timer">--</b></span>
-  <span>下: 日本妖怪軍（あなた）</span>
+  <span id="bottomLabel">下: 日本妖怪軍（あなた）</span>
   <button id="bgmBtn" type="button" aria-pressed="true" title="囃子 ON">♪ 囃子</button>
 </div>
 <div id="stage">
@@ -941,6 +941,17 @@ const R_OF = t => TIERS[t].r * SCALE;
 const MAX_TIER = TIERS.length - 1;
 const FACTION = { jp: { theme:'yokai',   name:'日本妖怪軍',     col:'#5588c4' },
                   mx: { theme:'muertos', name:'メキシコ死者軍', col:'#c46a30' } };
+// 軍の選択: 内部の陣営キー(jp=下の自分/mx=上のBot)はそのまま、テーマと名前だけ入れ替える
+let myArmy = 'yokai';
+const ARMY_NAME = { yokai: '日本妖怪軍', muertos: 'メキシコ死者軍' };
+function applyArmy(th){
+  const foe = th === 'yokai' ? 'muertos' : 'yokai';
+  FACTION.jp.theme = th;  FACTION.jp.name = ARMY_NAME[th];
+  FACTION.mx.theme = foe; FACTION.mx.name = ARMY_NAME[foe];
+  rosterIconsMade = false;
+  const bl = document.getElementById('bottomLabel');
+  if(bl) bl.textContent = `下: ${FACTION.jp.name}（あなた）`;
+}
 const STYLE_TBL = {
   yokai:   ['bomb','melee','spin','shot','spin','shot','fly','boss','shot','boss','boss'],
   muertos: ['bomb','melee','spin','shot','spin','shot','boss','boss','fly','boss','boss'],
@@ -1200,7 +1211,7 @@ function botAct(dt){
   if(own.length && Math.random() < 0.9) x = own[Math.floor(Math.random()*own.length)].x + rand(-14,14);
   else x = 30 + Math.random()*(W-60);
   spawn('top','mx',nextTierBot,x);
-  dropSfxV('muertos');
+  dropSfxV(FACTION.mx.theme);
   nextTierBot = botTierPick();
 }
 
@@ -1220,7 +1231,7 @@ function startBattle(){
   track('battle-reached');
   phase = 'battle';
   TIMER_EL.textContent = '決戦！ 自分の妖怪をタップで必殺';
-  effects.push({ kind:'banner', t: 0, text: '日本妖怪軍 vs メキシコ死者軍', fk: null });
+  effects.push({ kind:'banner', t: 0, text: `${FACTION.jp.name} vs ${FACTION.mx.name}`, fk: null });
   kaisenSfx();
 }
 const wallY = fk => fk === 'jp' ? H - BASE_H/2 : BASE_H/2;
@@ -1908,8 +1919,18 @@ function drawTitle(){
   drawFruit({ x: W/2-78, y: H/2-16, r: 48, tier: 6, theme:'yokai',   wobble:1, angle:0, rage:0, gold:false }, false);
   drawFruit({ x: W/2+78, y: H/2-16, r: 48, tier: 7, theme:'muertos', wobble:3, angle:0, rage:0, gold:false }, false);
   if(diffSel){
-    ctx.fillStyle = '#c9b98a'; ctx.font = '15px serif';
-    ctx.fillText('相手のBotの強さは？', W/2, H/2 + 60);
+    // キャラをタップして軍を選ぶ（天狗=日本 / カトリーナ=メキシコ）
+    for(const [ax, th] of [[W/2 - 78, 'yokai'], [W/2 + 78, 'muertos']]){
+      const sel = myArmy === th;
+      ctx.strokeStyle = sel ? `rgba(255,215,106,${0.7 + 0.3 * Math.sin(time * 5)})` : 'rgba(90,84,112,0.55)';
+      ctx.lineWidth = sel ? 3 : 1.5;
+      if(sel) ctx.setLineDash([]); else ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.arc(ax, H/2 - 16, 58, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = sel ? '#ffd76a' : '#8d86a5'; ctx.font = sel ? 'bold 12px serif' : '11px serif';
+      ctx.fillText(ARMY_NAME[th], ax, H/2 + 54);
+    }
+    ctx.fillStyle = '#c9b98a'; ctx.font = '13.5px serif';
+    ctx.fillText('使う軍をえらんで、Botの強さで出発', W/2, H/2 + 74);
     drawModeBtn(BTN1, BOT_LVS.ko.name);
     drawModeBtn(BTN2, BOT_LVS.oni.name);
     drawModeBtn(BTN3, BOT_LVS.hyakki.name);
@@ -1958,8 +1979,9 @@ function drawMatchLabels(){
   const myFk = (net && net.role === 'guest') ? 'mx' : 'jp';
   const foeName = mode === 'bot' ? 'Bot' : mode === '2p' ? '2P' : ((net && net.peerName) || '相手');
   const meName = (mode === 'online' || net) && myName ? myName : 'あなた';
-  const tagMy  = myFk === 'jp' ? '日本妖怪軍' : 'メキシコ死者軍';
-  const tagFoe = myFk === 'jp' ? 'メキシコ死者軍' : '日本妖怪軍';
+  const foeFk2 = myFk === 'jp' ? 'mx' : 'jp';
+  const tagMy  = FACTION[myFk].name;
+  const tagFoe = FACTION[foeFk2].name;
   ctx.save();
   ctx.font = '10.5px sans-serif'; ctx.textAlign = 'right';
   const myY  = myFk === 'jp' ? H - BASE_H - 8 : BASE_H + 16;
@@ -2183,8 +2205,8 @@ function drawCastleJP(){
     ctx.fillStyle = lg;
     ctx.beginPath(); ctx.arc(x, y0 + 9, 7, 0, 7); ctx.fill();
   }
-  // 天守閣（生成スプライト・三棟構え、中央がデカい）
-  const cImg = buildingImages.castleJp;
+  // 下の城（自軍のテーマに応じて天守閣か祭壇ピラミッド・三棟構え、中央がデカい）
+  const cImg = buildingImages[FACTION.jp.theme === 'yokai' ? 'castleJp' : 'castleMx'];
   if(imageReady(cImg)){
     for(const [bx, cw] of [[74, 64], [W/2, 122], [W - 74, 64]]){
       const ch = cw * cImg.naturalHeight / cImg.naturalWidth;
@@ -2202,9 +2224,9 @@ function drawCastleMX(){
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, 18); ctx.clip();
   stoneJoints(0, 18, 8);
   ctx.restore();
-  // 祭壇ピラミッド（生成スプライト・上下逆さに吊り下がる三棟、中央がデカい）
+  // 上の城（Bot軍のテーマに応じた建物・上下逆さに吊り下がる三棟、中央がデカい）
   const cx = W / 2;
-  const pImg = buildingImages.castleMx;
+  const pImg = buildingImages[FACTION.mx.theme === 'muertos' ? 'castleMx' : 'castleJp'];
   if(imageReady(pImg)){
     for(const [bx, pw] of [[74, 68], [cx, 130], [W - 74, 68]]){
       const ph = pw * pImg.naturalHeight / pImg.naturalWidth;
@@ -2583,20 +2605,24 @@ cv.addEventListener('click', () => {
   if(phase === 'battle'){ specialAt('jp', mouseX, mouseY); return; }
   if(phase === 'title'){
     if(diffSel){
-      // Botの強さを選ぶ画面
+      // 軍選択（キャラをタップ）とBotの強さ
+      if(Math.hypot(mouseX - (W/2 - 78), mouseY - (H/2 - 16)) < 60){ myArmy = 'yokai'; return; }
+      if(Math.hypot(mouseX - (W/2 + 78), mouseY - (H/2 - 16)) < 60){ myArmy = 'muertos'; return; }
       if(inBtn(BTN1, mouseX, mouseY)) botLv = 'ko';
       else if(inBtn(BTN2, mouseX, mouseY)) botLv = 'oni';
       else if(inBtn(BTN3, mouseX, mouseY)) botLv = 'hyakki';
       else { diffSel = false; return; }
       diffSel = false; mode = 'bot';
-      TOP_LABEL.textContent = `上: メキシコ死者軍（Bot・${BOT_LVS[botLv].name.split('（')[0]}）`;
+      applyArmy(myArmy);
+      TOP_LABEL.textContent = `上: ${FACTION.mx.name}（Bot・${BOT_LVS[botLv].name.split('（')[0]}）`;
       ac(); startBGM(); tickWood(); newGame(); return;
     }
     if(inBtn(BTN3, mouseX, mouseY)){ LOBBY.hidden = false; setNetStatus('好きな合言葉を入れてください（空欄で部屋を作ると自動発行）'); return; }
     if(inBtn(BTN1, mouseX, mouseY)){ diffSel = true; return; }
     else if(inBtn(BTN2, mouseX, mouseY)) mode = '2p';
     else return;
-    TOP_LABEL.textContent = '上: メキシコ死者軍（プレイヤー2）';
+    applyArmy(myArmy);
+    TOP_LABEL.textContent = `上: ${FACTION.mx.name}（プレイヤー2）`;
     ac(); startBGM(); tickWood(); newGame(); return;
   }
   if(phase === 'result'){
@@ -2605,7 +2631,7 @@ cv.addEventListener('click', () => {
   }
   if(phase === 'merge' && canDrop){
     spawn('bottom','jp',nextTier,mouseX);
-    dropSfxV('yokai');
+    dropSfxV(FACTION.jp.theme);
     nextTier = rndTier();
     canDrop = false; dropCooldown = 0.32;
   }
@@ -2684,13 +2710,13 @@ function setupConn(conn, role){
     if(role === 'host' && inGame){
       // 相手が切断してもBotが引き継いで試合続行（試合を消さない）
       net = null; mode = 'bot'; botLv = 'oni';
-      TOP_LABEL.textContent = '上: メキシコ死者軍（Bot・引き継ぎ）';
+      TOP_LABEL.textContent = `上: ${FACTION.mx.name}（Bot・引き継ぎ）`;
       effects.push({ kind:'banner', t: 0, text: '相手が切断 — Botが引き継ぎ', fk: null });
       return;
     }
     setNetStatus('切断されました。部屋を作った側ではBotが引き継いで試合が続いています');
     net = null; mode = 'bot'; phase = 'title';
-    TOP_LABEL.textContent = '上: メキシコ死者軍（Bot）'; LOBBY.hidden = false; });
+    TOP_LABEL.textContent = `上: ${FACTION.mx.name}（Bot）`; LOBBY.hidden = false; });
 }
 function normCode(v){ return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
 function hostRoom(){
@@ -2707,6 +2733,7 @@ function hostRoom(){
   });
   peer.on('connection', conn => {
     conn.on('open', () => {
+      applyArmy('yokai');                              // オンラインは軍固定（同期の正準形）
       setupConn(conn, 'host');
       mode = 'online';
       TOP_LABEL.textContent = '上: 相手（オンライン）';
@@ -2726,6 +2753,7 @@ function joinRoom(){
   peer.on('open', () => {
     const conn = peer.connect('hyakki-' + code, { reliable: true });
     conn.on('open', () => {
+      applyArmy('yokai');                              // オンラインは軍固定（同期の正準形）
       setupConn(conn, 'guest');
       mode = 'online';
       TOP_LABEL.textContent = '上: あなた（タップ/クリックで投下）';
@@ -2737,7 +2765,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v9.7';  // 版番号はここだけを更新する（canvas右下に描画される）
+const BUILD_VER = 'v9.8';  // 版番号はここだけを更新する（canvas右下に描画される）
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
