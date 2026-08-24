@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>百鬼あわせ 対戦プロト v8 — 日本妖怪軍 vs メキシコ死者軍</title>
+<title>百鬼あわせ 対戦版｜妖怪を合体させて城を落とす無料ブラウザ対戦ゲーム</title>
+<meta name="description" content="妖怪を落として合体、軍団を作って敵の城を攻める無料ブラウザ対戦ゲーム。スマホOK・インストール不要。合言葉でフレンドとオンライン対戦もできます。">
 <style>
   html,body{margin:0;padding:0;background:#0b0a14;color:#e8e2d0;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
     display:flex;flex-direction:column;align-items:center;min-height:100vh;user-select:none;
@@ -78,10 +79,11 @@
   #copyBtn{background:none;border:1px solid #4a4066;color:#9a8fb8;border-radius:6px;font-size:10.5px;
     padding:2px 8px;cursor:pointer;font-family:inherit;margin-left:6px;}
   #lobbyBack{background:none;border:none;color:#6f668a;font-size:11.5px;cursor:pointer;font-family:inherit;margin-top:2px;}
+  .lobbyNote{font-size:9.5px;color:#6f668a;text-align:left;line-height:1.65;margin:10px 0 4px;}
 </style>
 </head>
 <body>
-<h1>百鬼あわせ 対戦プロト</h1>
+<h1>百鬼あわせ 対戦版</h1>
 <div id="hud">
   <span id="topLabel">上: メキシコ死者軍（Bot）</span>
   <span><b id="timer">--</b></span>
@@ -95,12 +97,17 @@
     <h2>オンライン対戦</h2>
     <p>ふたりで同じ合言葉を決めて、<br>片方が「部屋を作る」、もう片方が「参加する」。</p>
     <input id="roomInput" maxlength="8" placeholder="合言葉" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input id="nameInput" maxlength="10" placeholder="なまえ（相手に見えます・省略可）" autocomplete="off" autocorrect="off" spellcheck="false">
     <div class="lobbyBtns">
       <button id="hostBtn" type="button">部屋を作る</button>
       <button id="joinBtn" type="button">参加する</button>
     </div>
     <div id="netStatus"></div>
     <div id="inviteLine" hidden><b id="inviteUrl"></b><button id="copyBtn" type="button">コピー</button></div>
+    <p class="lobbyNote">・ふたりのブラウザを直接つなぎます（WebRTC）。仕組み上、相手にIPアドレスが伝わる可能性があります。合言葉や招待URLは知らない人と共有しないでください。<br>
+    ・なまえは相手の画面に表示されます。本名や連絡先は入れないでください。<br>
+    ・通信環境によっては繋がらない・途中で切れることがあります。切れた場合、部屋を作った側はBotが引き継いで試合が続きます。<br>
+    ・「部屋を作る／参加する」を押すと、上記に同意したものとします。</p>
     <button id="lobbyBack" type="button">← タイトルへ戻る</button>
   </div>
 </div>
@@ -128,6 +135,8 @@
     <p>【前線】召喚できるのは自軍の城前だけ。盤面の祠を取ると、自軍が持つ一番前の祠ラインまで前線が前進して召喚範囲が広がる。祠は計5つ、配置は毎回ランダム。</p>
     <p>【祠の恵み】火=自動砲台、薬=周囲回復、風=加速+城攻め強化。3つで優勢、5つ全部で百鬼夜行。丑三つ時（90秒〜）は回復倍速。</p>
     <p>【必殺】決戦中、光る自分の妖怪をタップ。相性: 火・弾 ＞ 回転 ＞ 殴り ＞ 火・弾。</p>
+    <p>【Botの強さ】子鬼（やさしい）／鬼（ふつう）／百鬼（開発者が2連敗した強さ）から選べる。</p>
+    <p>【オンライン対戦】合言葉を決めて片方が「部屋を作る」、もう片方が「参加する」。招待URLを送るだけでもOK。なまえを入れると相手の画面に表示される。通信が切れても、部屋を作った側はBotが引き継いで試合続行。</p>
     <p>【2P上側】S=必殺・Q=小物召喚・W=大物召喚。</p>
     <button class="modalClose" type="button">とじる</button>
   </div>
@@ -989,7 +998,8 @@ let mouseX = W/2, mouseY = H*0.75, canDrop = true, dropCooldown = 0;
 let mode = 'bot';                                      // 'bot' | '2p'
 let topAimX = W/2, canDropTop = true, dropCooldownTop = 0;
 const keys = new Set();
-let net = null;                    // {role:'host'|'guest', conn}
+let net = null;                    // {role:'host'|'guest', conn, peerName}
+let myName = '';                   // オンライン用の表示名（相手に見える・10文字）
 let remoteDrops = [];              // host: ゲストの投下要求
 let sfxLog = [];                   // host: ゲストへ流す効果音
 let frameNo = 0;
@@ -1076,7 +1086,15 @@ function drawParts(){
 }
 
 const rndTier = () => Math.floor(Math.random() * 3);
-const botTierPick = () => Math.random() < 0.2 ? 3 : rndTier();   // Bot強化: 2割で提灯級を直接投下
+// Botの強さ（難易度）。drop=投下間隔倍率 / t3=提灯級直接投下率 / sum=召喚間隔と使用率 / sp=必殺の頻度
+const BOT_LVS = {
+  ko:     { name: '子鬼（やさしい）',       drop: 1.7,  t3: 0.04, sumMin: 3.5, sumMax: 6.0, sumProb: 0.25, sp: 2.6 },
+  oni:    { name: '鬼（ふつう）',           drop: 1.25, t3: 0.1,  sumMin: 2.2, sumMax: 4.0, sumProb: 0.4,  sp: 1.7 },
+  hyakki: { name: '百鬼（勝てたら教えて）', drop: 1.0,  t3: 0.2,  sumMin: 1.4, sumMax: 2.8, sumProb: 0.55, sp: 1.1 },
+};
+let botLv = 'oni';
+let diffSel = false;                                   // タイトルでBotの強さを選択中
+const botTierPick = () => Math.random() < BOT_LVS[botLv].t3 ? 3 : rndTier();
 
 function newGame(){
   pieces = []; units = []; projs = []; effects = []; floats = []; zones = []; parts = [];
@@ -1176,7 +1194,7 @@ function topInput(dt){
 function botAct(dt){
   botTimer -= dt;
   if(botTimer > 0) return;
-  botTimer = 0.5 + Math.random()*0.3;
+  botTimer = (0.5 + Math.random()*0.3) * BOT_LVS[botLv].drop;
   const own = pieces.filter(p => p.fk==='mx' && p.tier===nextTierBot && p.y < CY);
   let x;
   if(own.length && Math.random() < 0.9) x = own[Math.floor(Math.random()*own.length)].x + rand(-14,14);
@@ -1584,11 +1602,12 @@ function battleStep(dt){
     // Bot: 回復済みの一番大きいキャラを状況で出す（劣勢や終盤は躊躇なく）
     botSumT = (botSumT || 0) - dt;
     if(botSumT <= 0){
-      botSumT = rand(1.4, 2.8);
+      const lv = BOT_LVS[botLv];
+      botSumT = rand(lv.sumMin, lv.sumMax);
       let pick = -1;
       for(let t = 10; t >= 0; t--) if(roster.mx[t].stock > 0){ pick = t; break; }
       const losing = battle.base.mx < battle.base.jp - 30;
-      if(pick >= 0 && (pick >= 9 || losing || battle.t > 110 || Math.random() < 0.55)){
+      if(pick >= 0 && (pick >= 9 || losing || battle.t > 110 || Math.random() < lv.sumProb)){
         let sx = W/2 + rand(-140, 140), sy = BASE_H + rand(24, 100);
         let danger = null, bd = 1e9;
         for(const sh of shrines){
@@ -1608,7 +1627,7 @@ function battleStep(dt){
     }
     botSpT -= dt;
     if(botSpT <= 0){
-      botSpT = 1.1;
+      botSpT = BOT_LVS[botLv].sp;
       const ready = units.filter(u => u.fk === 'mx' && !u.dead && u.spCd <= 0 && nearestFoe(u)[1] < 170);
       if(ready.length) triggerSpecial(ready[Math.floor(Math.random()*ready.length)]);
     }
@@ -1885,16 +1904,28 @@ function drawTitle(){
   ctx.fillStyle = '#12101e'; ctx.fillRect(0,0,W,H);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#c9b98a'; ctx.font = '28px serif';
-  ctx.fillText('百鬼あわせ 対戦プロト', W/2, H/2 - 108);
+  ctx.fillText('百鬼あわせ 対戦版', W/2, H/2 - 108);
   drawFruit({ x: W/2-78, y: H/2-16, r: 48, tier: 6, theme:'yokai',   wobble:1, angle:0, rage:0, gold:false }, false);
   drawFruit({ x: W/2+78, y: H/2-16, r: 48, tier: 7, theme:'muertos', wobble:3, angle:0, rage:0, gold:false }, false);
-  ctx.fillStyle = '#9a8fb8'; ctx.font = '13px serif';
-  ctx.fillText('60秒で軍団を仕込み、溜めた山で敵陣へ攻め込む', W/2, H/2 + 66);
-  drawModeBtn(BTN1, 'ひとりで挑む（Bot対戦）');
-  drawModeBtn(BTN2, 'ふたりで対戦（1台・上下に分かれて）');
-  drawModeBtn(BTN3, 'オンライン対戦（合言葉でつなぐ）');
-  ctx.fillStyle = '#6f668a'; ctx.font = '11px serif';
-  ctx.fillText('（音が鳴ります）', W/2, H/2 + 228);
+  if(diffSel){
+    ctx.fillStyle = '#c9b98a'; ctx.font = '15px serif';
+    ctx.fillText('相手のBotの強さは？', W/2, H/2 + 60);
+    drawModeBtn(BTN1, BOT_LVS.ko.name);
+    drawModeBtn(BTN2, BOT_LVS.oni.name);
+    drawModeBtn(BTN3, BOT_LVS.hyakki.name);
+    ctx.fillStyle = '#6f668a'; ctx.font = '11px serif';
+    ctx.fillText('（ボタン以外をタップでもどる）', W/2, H/2 + 228);
+  } else {
+    ctx.fillStyle = '#d4a43d'; ctx.font = '15px serif';
+    ctx.fillText('妖怪を合体させて、城を落とせ。', W/2, H/2 + 50);
+    ctx.fillStyle = '#9a8fb8'; ctx.font = '12px serif';
+    ctx.fillText('無料ブラウザ対戦ゲーム — スマホOK・インストール不要', W/2, H/2 + 70);
+    drawModeBtn(BTN1, 'ひとりで挑む（Bot対戦）');
+    drawModeBtn(BTN2, 'ふたりで対戦（1台・上下に分かれて）');
+    drawModeBtn(BTN3, 'オンライン対戦（合言葉でつなぐ）');
+    ctx.fillStyle = '#6f668a'; ctx.font = '11px serif';
+    ctx.fillText('（音が鳴ります）', W/2, H/2 + 228);
+  }
   ctx.textAlign = 'right';
   ctx.fillText(BUILD_VER, W - 10, H - 10);
   ctx.textAlign = 'center';
@@ -1925,7 +1956,8 @@ function drawZones(){
 function drawMatchLabels(){
   if(phase !== 'merge' && phase !== 'battle') return;
   const myFk = (net && net.role === 'guest') ? 'mx' : 'jp';
-  const foeName = mode === 'bot' ? 'Bot' : mode === '2p' ? '2P' : '相手';
+  const foeName = mode === 'bot' ? 'Bot' : mode === '2p' ? '2P' : ((net && net.peerName) || '相手');
+  const meName = (mode === 'online' || net) && myName ? myName : 'あなた';
   const tagMy  = myFk === 'jp' ? '日本妖怪軍' : 'メキシコ死者軍';
   const tagFoe = myFk === 'jp' ? 'メキシコ死者軍' : '日本妖怪軍';
   ctx.save();
@@ -1933,7 +1965,7 @@ function drawMatchLabels(){
   const myY  = myFk === 'jp' ? H - BASE_H - 8 : BASE_H + 16;
   const foeY = myFk === 'jp' ? BASE_H + 16 : H - BASE_H - 8;
   ctx.fillStyle = myFk === 'jp' ? '#8fb4e0' : '#e0a878';
-  ctx.fillText(`あなた — ${tagMy}`, W - 8, myY);
+  ctx.fillText(`${meName} — ${tagMy}`, W - 8, myY);
   ctx.fillStyle = myFk === 'jp' ? '#e0a878' : '#8fb4e0';
   ctx.fillText(`${foeName} — ${tagFoe}`, W - 8, foeY);
   ctx.restore();
@@ -2550,11 +2582,21 @@ cv.addEventListener('click', () => {
   }
   if(phase === 'battle'){ specialAt('jp', mouseX, mouseY); return; }
   if(phase === 'title'){
+    if(diffSel){
+      // Botの強さを選ぶ画面
+      if(inBtn(BTN1, mouseX, mouseY)) botLv = 'ko';
+      else if(inBtn(BTN2, mouseX, mouseY)) botLv = 'oni';
+      else if(inBtn(BTN3, mouseX, mouseY)) botLv = 'hyakki';
+      else { diffSel = false; return; }
+      diffSel = false; mode = 'bot';
+      TOP_LABEL.textContent = `上: メキシコ死者軍（Bot・${BOT_LVS[botLv].name.split('（')[0]}）`;
+      ac(); startBGM(); tickWood(); newGame(); return;
+    }
     if(inBtn(BTN3, mouseX, mouseY)){ LOBBY.hidden = false; setNetStatus('好きな合言葉を入れてください（空欄で部屋を作ると自動発行）'); return; }
-    if(inBtn(BTN1, mouseX, mouseY)) mode = 'bot';
+    if(inBtn(BTN1, mouseX, mouseY)){ diffSel = true; return; }
     else if(inBtn(BTN2, mouseX, mouseY)) mode = '2p';
     else return;
-    TOP_LABEL.textContent = mode === 'bot' ? '上: メキシコ死者軍（Bot）' : '上: メキシコ死者軍（プレイヤー2）';
+    TOP_LABEL.textContent = '上: メキシコ死者軍（プレイヤー2）';
     ac(); startBGM(); tickWood(); newGame(); return;
   }
   if(phase === 'result'){
@@ -2627,14 +2669,27 @@ function applySnap(s){
   for(const [name, args] of s.sfx || []){ try{ SFX_ORIG[name](...(args||[])); }catch(e){} }
 }
 function setupConn(conn, role){
-  net = { role, conn };
+  net = { role, conn, peerName: '' };
   track('play-online-' + role);
   rosterIconsMade = false;                             // ゲストは軍が変わるのでアイコン再生成
+  myName = String(document.getElementById('nameInput').value || '').trim().slice(0, 10);
+  try{ conn.send({ t: 'hello', name: myName }); }catch(e){}
   conn.on('data', d => {
+    if(d && d.t === 'hello'){ net.peerName = String(d.name || '').slice(0, 10); return; }
     if(role === 'host'){ if(d && d.t === 'drop') remoteDrops.push(d.x); else if(d && d.t === 'sp' && phase === 'battle') specialAt('mx', d.x, d.y); else if(d && d.t === 'sum') summonChar('mx', d.i, d.x == null ? W/2 : d.x, d.y == null ? BASE_H + 42 : d.y); }
     else if(d && d.t === 'snap') applySnap(d);
   });
-  conn.on('close', () => { setNetStatus('切断されました'); net = null; mode = 'bot'; phase = 'title';
+  conn.on('close', () => {
+    const inGame = phase === 'merge' || phase === 'battle' || phase === 'count';
+    if(role === 'host' && inGame){
+      // 相手が切断してもBotが引き継いで試合続行（試合を消さない）
+      net = null; mode = 'bot'; botLv = 'oni';
+      TOP_LABEL.textContent = '上: メキシコ死者軍（Bot・引き継ぎ）';
+      effects.push({ kind:'banner', t: 0, text: '相手が切断 — Botが引き継ぎ', fk: null });
+      return;
+    }
+    setNetStatus('切断されました。部屋を作った側ではBotが引き継いで試合が続いています');
+    net = null; mode = 'bot'; phase = 'title';
     TOP_LABEL.textContent = '上: メキシコ死者軍（Bot）'; LOBBY.hidden = false; });
 }
 function normCode(v){ return (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); }
@@ -2682,7 +2737,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v9.6';  // 版番号はここだけを更新する（canvas右下に描画される）
+const BUILD_VER = 'v9.7';  // 版番号はここだけを更新する（canvas右下に描画される）
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
