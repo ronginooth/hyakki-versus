@@ -199,6 +199,8 @@ const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 // GC_CODE はGoatCounterのサイトコード（例 'ronginooth'）。空文字なら一切送信しない
 const GC_CODE = 'ronginooth';
 if(GC_CODE && location.protocol.startsWith('http')){
+  // itch配信時はCDNの乱数パスではなく固定名で計測する
+  window.goatcounter = { path: () => location.host.indexOf('itch') >= 0 ? 'itch-hyakki-versus' : (location.pathname || '/hyakki-versus') };
   const gs = document.createElement('script');
   gs.async = true; gs.src = 'https://gc.zgo.at/count.js';
   gs.dataset.goatcounter = `https://${GC_CODE}.goatcounter.com/count`;
