@@ -40,11 +40,12 @@
     color:#ffd24a;font-family:sans-serif;text-shadow:0 1px 3px #000;pointer-events:none;}
   .rIcon .rGuard{position:absolute;bottom:-2px;left:-2px;z-index:2;font-size:8.5px;color:#8ec8ff;
     font-family:sans-serif;text-shadow:0 1px 2px #000;pointer-events:none;}
-  .rTool{width:26px;height:26px;margin-bottom:6px;border-radius:50%;border:1px solid #4a4066;
-    background:#1b1730;color:#9a8fb8;font-size:12.5px;cursor:pointer;font-family:inherit;flex:none;}
+  .rTool{width:28px;height:28px;border-radius:50%;border:1px solid #4a4066;
+    background:#1b1730;color:#9a8fb8;font-size:13px;cursor:pointer;font-family:inherit;flex:none;opacity:.9;}
+  #toolBar{position:absolute;top:6px;right:6px;display:flex;gap:6px;z-index:5;}
   .rTool:hover{color:#e8e2d0;border-color:#8d86a5;}
   /* ヘルプ・図鑑モーダル */
-  .modal{position:fixed;inset:0;z-index:30;background:rgba(11,10,20,.78);
+  .modal{position:fixed;inset:0;z-index:30;background:rgba(11,10,20,.96);
     display:flex;align-items:center;justify-content:center;}
   .modalCard{background:#171331;border:1px solid #4a4066;border-radius:12px;max-width:min(460px,94vw);
     max-height:82vh;overflow-y:auto;padding:18px 20px;font-size:12px;line-height:1.75;color:#c9c2da;}
@@ -57,6 +58,25 @@
   .modalCard .aMark{color:#e8a45a;font-size:9.5px;}
   .modalClose{display:block;margin:14px auto 0;background:none;border:1px solid #4a4066;color:#9a8fb8;
     border-radius:8px;padding:5px 22px;cursor:pointer;font-family:inherit;font-size:12px;}
+  .wideCard{max-width:min(500px,96vw);}
+  .dexTabs{display:flex;gap:6px;margin-bottom:10px;}
+  .dexTab{flex:1;background:#1b1730;border:1px solid #4a4066;color:#8d86a5;border-radius:8px;
+    padding:6px 0;cursor:pointer;font-family:inherit;font-size:11.5px;}
+  .dexTab.sel{color:#ffd76a;border-color:#d4a43d;background:#241d3f;}
+  #dexGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .dexItem{display:flex;gap:8px;align-items:center;background:#1b1730;border:1px solid #2a2445;
+    border-radius:10px;padding:6px 7px;}
+  .dexItem canvas{width:62px;height:62px;flex:none;}
+  .dexItem .dh{font-size:12px;color:#e9e1cc;font-weight:bold;line-height:1.3;}
+  .dexItem .dh .gMark{color:#8ec8ff;font-size:9px;font-weight:normal;margin-left:4px;}
+  .dexItem .dh .aMark{color:#e8a45a;font-size:9px;font-weight:normal;margin-left:4px;}
+  .dexItem .dt{font-size:9.5px;color:#9a8fb8;line-height:1.5;}
+  .dexItem .dt b{color:#c9b98a;font-weight:normal;}
+  .dexNote{font-size:10px;color:#6f668a;text-align:center;margin:10px 0 0;}
+  .howRow{display:flex;gap:10px;align-items:center;margin-bottom:10px;}
+  .howCv{width:230px;height:63px;flex:none;background:#141026;border-radius:10px;border:1px solid #2a2445;}
+  .howT{font-size:11px;color:#c9c2da;line-height:1.6;}
+  .howT b{color:#c9b98a;}
   [hidden]{display:none !important;}
   #stage{position:relative;}
   #lobby{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
@@ -92,6 +112,10 @@
 </div>
 <div id="stage">
 <canvas id="cv" width="480" height="600"></canvas>
+<div id="toolBar">
+  <button class="rTool" id="dexBtn" title="百鬼武鑑（キャラ図鑑）">鑑</button>
+  <button class="rTool" id="helpBtn" title="遊び方">？</button>
+</div>
 <div id="lobby" hidden>
   <div class="lobbyCard">
     <h2>オンライン対戦</h2>
@@ -124,57 +148,32 @@
   <button class="rIcon" data-i="8"><i class="rRing"></i><canvas width="76" height="76"></canvas><span class="rStock"></span><span class="rGuard"></span></button>
   <button class="rIcon" data-i="9"><i class="rRing"></i><canvas width="76" height="76"></canvas><span class="rStock"></span><span class="rGuard"></span></button>
   <button class="rIcon" data-i="10"><i class="rRing"></i><canvas width="76" height="76"></canvas><span class="rStock"></span><span class="rGuard"></span></button>
-  <button class="rTool" id="dexBtn" title="百鬼武鑑（キャラ図鑑）">鑑</button>
-  <button class="rTool" id="helpBtn" title="遊び方">？</button>
 </div>
 <div id="helpModal" class="modal" hidden>
-  <div class="modalCard">
+  <div class="modalCard wideCard">
     <h2>遊び方</h2>
-    <p>【仕込み60秒】タップで妖怪を落とし、同じ妖怪を合体させて軍団を作る。縁結び磁石で吸い寄せられる。</p>
-    <p>【決戦】溜めた山がそのまま進軍。下のキャラ一覧から回復した妖怪を選んでタップ召喚（灰色は回復中、リングが回復進捗）。弱い妖怪ほど回復が速く、ストックは1タップ1体の小出し。「護」マークは出した場所を守る護衛、他は進撃。</p>
-    <p>【前線】召喚できるのは自軍の城前だけ。盤面の祠を取ると、自軍が持つ一番前の祠ラインまで前線が前進して召喚範囲が広がる。祠は計5つ、配置は毎回ランダム。</p>
-    <p>【祠の恵み】火=自動砲台、薬=周囲回復、風=加速+城攻め強化。3つで優勢、5つ全部で百鬼夜行。丑三つ時（90秒〜）は回復倍速。</p>
-    <p>【必殺】決戦中、光る自分の妖怪をタップ。相性: 火・弾 ＞ 回転 ＞ 殴り ＞ 火・弾。</p>
-    <p>【Botの強さ】子鬼（やさしい）／鬼（ふつう）／百鬼（開発者が2連敗した強さ）から選べる。</p>
-    <p>【オンライン対戦】合言葉を決めて片方が「部屋を作る」、もう片方が「参加する」。招待URLを送るだけでもOK。なまえを入れると相手の画面に表示される。通信が切れても、部屋を作った側はBotが引き継いで試合続行。</p>
-    <p>【2P上側】S=必殺・Q=小物召喚・W=大物召喚。</p>
+    <div class="howRow"><canvas class="howCv" id="how1" width="440" height="120"></canvas>
+      <div class="howT"><b>① 仕込み（60秒）</b><br>タップで妖怪を落とす。同じ妖怪がくっつくと、上位の妖怪に化ける。</div></div>
+    <div class="howRow"><canvas class="howCv" id="how2" width="440" height="120"></canvas>
+      <div class="howT"><b>② 決戦</b><br>時間切れで全軍が進軍。<b>祠</b>を取ると前線が動き、召喚できる範囲が広がる。</div></div>
+    <div class="howRow"><canvas class="howCv" id="how3" width="440" height="120"></canvas>
+      <div class="howT"><b>③ 召喚</b><br>下の一覧から回復した妖怪を選んで、盤面をタップ。「護」は出した場所を守る。</div></div>
+    <div class="howRow"><canvas class="howCv" id="how4" width="440" height="120"></canvas>
+      <div class="howT"><b>④ 必殺技</b><br>光る自分の妖怪をタップ。相性: 火・弾 ＞ 回転 ＞ 殴り ＞ 火・弾。</div></div>
+    <p class="dexNote">2P上側: S=必殺・Q/W=召喚 ／ 丑三つ時（90秒〜）は回復倍速 ／ オンラインは合言葉で接続</p>
     <button class="modalClose" type="button">とじる</button>
   </div>
 </div>
 <div id="dexModal" class="modal" hidden>
-  <div class="modalCard">
-    <h2>百鬼武鑑 — キャラの特性と必殺</h2>
-    <h3>日本妖怪軍（破壊と制圧）</h3>
-    <table>
-      <tr><th>段</th><th>名</th><th>役</th><th>特性</th><th>必殺</th></tr>
-      <tr><td>零</td><td>狐火</td><td class="aMark">進撃</td><td>死亡時小爆発</td><td>突撃自爆</td></tr>
-      <tr><td>壱</td><td>子狐</td><td class="aMark">進撃</td><td>移動+30%</td><td>三連爪</td></tr>
-      <tr><td>弐</td><td>一つ目小僧</td><td class="gMark">護衛</td><td>被ダメ10%減</td><td>石化のにらみ</td></tr>
-      <tr><td>参</td><td>提灯お化け</td><td class="aMark">進撃</td><td>遠隔火弾</td><td>業火（燃える床）</td></tr>
-      <tr><td>四</td><td>からかさ</td><td class="aMark">進撃</td><td>15%弾き</td><td>風車大進軍</td></tr>
-      <tr><td>五</td><td>河童</td><td class="gMark">護衛</td><td>水弾</td><td>直線ノックバック</td></tr>
-      <tr><td>六</td><td>天狗</td><td class="aMark">進撃</td><td>飛翔急襲</td><td>竜巻で陣形崩し</td></tr>
-      <tr><td>七</td><td>鬼</td><td class="aMark">進撃</td><td>通常に小スタン</td><td>範囲スタン地割れ</td></tr>
-      <tr><td>八</td><td>がしゃどくろ</td><td class="aMark">進撃</td><td>城・祠に特攻</td><td>骨の雨</td></tr>
-      <tr><td>九</td><td>大入道</td><td class="gMark">護衛</td><td>被ダメ25%減・鈍足</td><td>超範囲踏みつけ</td></tr>
-      <tr><td>拾</td><td>九尾の狐</td><td class="aMark">進撃</td><td>大将</td><td>九陽ノ大火（縦貫通ビーム）</td></tr>
-    </table>
-    <h3>メキシコ死者軍（祝祭と支援）</h3>
-    <table>
-      <tr><th>段</th><th>名</th><th>役</th><th>特性</th><th>必殺</th></tr>
-      <tr><td>零</td><td>マリーゴールド</td><td class="aMark">進撃</td><td>死亡時味方小回復</td><td>花弁自爆</td></tr>
-      <tr><td>壱</td><td>ろうそく</td><td class="gMark">護衛</td><td>周囲毎秒回復</td><td>大灯（広範囲回復）</td></tr>
-      <tr><td>弐</td><td>こどもガイコツ</td><td class="aMark">進撃</td><td>敵必殺を遅延</td><td>高速五連撃</td></tr>
-      <tr><td>参</td><td>砂糖ドクロ</td><td class="gMark">護衛</td><td>周囲敵10%減速</td><td>味方シールド</td></tr>
-      <tr><td>四</td><td>ガイコツ犬</td><td class="aMark">進撃</td><td>弱った敵を追う</td><td>貫通ダッシュ</td></tr>
-      <tr><td>五</td><td>マリアッチ</td><td class="aMark">進撃</td><td>味方攻撃速度up</td><td>扇状スロー弾</td></tr>
-      <tr><td>六</td><td>花冠ガイコツ</td><td class="gMark">護衛</td><td>味方被ダメ減</td><td>範囲DoT</td></tr>
-      <tr><td>七</td><td>カトリーナ</td><td class="aMark">進撃</td><td>敵攻撃力低下</td><td>死の抱擁（寝返り）</td></tr>
-      <tr><td>八</td><td>アレブリヘ</td><td class="aMark">進撃</td><td>飛行（前線越え）</td><td>最後衛へ急襲</td></tr>
-      <tr><td>九</td><td>ピニャータ</td><td class="aMark">進撃</td><td>死亡時全体回復</td><td>自傷大回復</td></tr>
-      <tr><td>拾</td><td>死者の王</td><td class="aMark">進撃</td><td>味方攻撃+10%</td><td>軍勢召喚</td></tr>
-    </table>
-    <p style="margin-top:8px;color:#8d86a5;">※一部は実装中。図鑑の完全版は『百鬼武鑑』にて。</p>
+  <div class="modalCard wideCard">
+    <h2>百鬼武鑑</h2>
+    <div class="dexTabs">
+      <button class="dexTab sel" data-army="yokai" type="button">日本妖怪軍</button>
+      <button class="dexTab" data-army="hallow" type="button">ハロウィン軍団</button>
+      <button class="dexTab" data-army="muertos" type="button">メキシコ死者軍</button>
+    </div>
+    <div id="dexGrid"></div>
+    <p class="dexNote">瞳はあなたのカーソルを追い、まばたきをします。</p>
     <button class="modalClose" type="button">とじる</button>
   </div>
 </div>
@@ -213,6 +212,12 @@ function track(name){
   }catch(e){}
 }
 const W = cv.width, H = cv.height, CY = H / 2;
+// ?hd=1 で2倍解像度レンダリング（トレーラー収録用。論理座標はW/Hのまま）
+if(new URLSearchParams(location.search).has('hd')){
+  cv.width = W * 2; cv.height = H * 2;
+  cv.style.width = '960px'; cv.style.height = '1200px';
+  ctx.scale(2, 2);
+}
 const TIMER_EL = document.getElementById('timer');
 const BGM_BTN = document.getElementById('bgmBtn');
 const TOP_LABEL = document.getElementById('topLabel');
@@ -945,9 +950,12 @@ const FACTION = { jp: { theme:'yokai',   name:'日本妖怪軍',     col:'#5588c
                   mx: { theme:'muertos', name:'メキシコ死者軍', col:'#c46a30' } };
 // 軍の選択: 内部の陣営キー(jp=下の自分/mx=上のBot)はそのまま、テーマと名前だけ入れ替える
 let myArmy = 'yokai';
-const ARMY_NAME = { yokai: '日本妖怪軍', muertos: 'メキシコ死者軍' };
+const ARMY_NAME = { yokai: '日本妖怪軍', muertos: 'メキシコ死者軍', hallow: 'ハロウィン軍団' };
+const ARMY_PICKS = [[W/2 - 130, 'yokai', 6, 1], [W/2, 'hallow', 4, 2], [W/2 + 130, 'muertos', 7, 3]];
 function applyArmy(th){
-  const foe = th === 'yokai' ? 'muertos' : 'yokai';
+  const others = ['yokai', 'muertos', 'hallow'].filter(a => a !== th);
+  const foe = th === 'yokai' ? 'muertos' : th === 'muertos' ? 'yokai'
+            : others[Math.floor(Math.random() * others.length)];
   FACTION.jp.theme = th;  FACTION.jp.name = ARMY_NAME[th];
   FACTION.mx.theme = foe; FACTION.mx.name = ARMY_NAME[foe];
   rosterIconsMade = false;
@@ -957,13 +965,14 @@ function applyArmy(th){
 const STYLE_TBL = {
   yokai:   ['bomb','melee','spin','shot','spin','shot','fly','boss','shot','boss','boss'],
   muertos: ['bomb','melee','spin','shot','spin','shot','boss','boss','fly','boss','boss'],
+  hallow:  ['bomb','fly','melee','spin','shot','shot','fly','boss','spin','boss','boss'],
 };
 const STYLE_OF = (t, theme) => (STYLE_TBL[theme] || STYLE_TBL.yokai)[t] || 'boss';
 // 護衛専用キャラ（召喚すると出した場所を守る）。日本=重い門番、メキシコ=支援型
-const GUARD_TBL = { yokai: [2, 5, 9], muertos: [1, 3, 6] };
+const GUARD_TBL = { yokai: [2, 5, 9], muertos: [1, 3, 6], hallow: [2, 5, 8] };
 const IS_GUARD = (t, theme) => (GUARD_TBL[theme] || []).includes(t);
-const SHOT_GLYPH = { yokai: ['','','','火','','水'], muertos: ['','','','✦','','♪'] };
-const SHOT_COL   = { yokai: ['','','','#ff8a3a','','#4ac0e8'], muertos: ['','','','#ff6aa8','','#ffd24a'] };
+const SHOT_GLYPH = { yokai: ['','','','火','','水'], muertos: ['','','','✦','','♪'], hallow: ['','','','','火','✦'] };
+const SHOT_COL   = { yokai: ['','','','#ff8a3a','','#4ac0e8'], muertos: ['','','','#ff6aa8','','#ffd24a'], hallow: ['','','','','#ff8a3a','#b06ae8'] };
 const BASE_H = 54;
 // 建物スプライト（ChatGPT生成の張り子調・透過webp）
 const BUILDING_ART = {
@@ -1012,6 +1021,7 @@ let mode = 'bot';                                      // 'bot' | '2p'
 let topAimX = W/2, canDropTop = true, dropCooldownTop = 0;
 const keys = new Set();
 let net = null;                    // {role:'host'|'guest', conn, peerName}
+let uiPaused = false;              // 図鑑/遊び方を開いている間はゲームを止める（オンライン中は止めない）
 let myName = '';                   // オンライン用の表示名（相手に見える・10文字）
 let remoteDrops = [];              // host: ゲストの投下要求
 let sfxLog = [];                   // host: ゲストへ流す効果音
@@ -1314,7 +1324,7 @@ function petrifyGlare(u){
     v.stone = 2.6; v.jump = null;
     effects.push({ kind:'stonewave', x: v.x, y: v.y, r: v.r + 14, t: 0 });
   }
-  effects.push({ kind:'banner', t: 0.9, text: '石化のにらみ!', fk: u.fk });
+  effects.push({ kind:'banner', t: 0.9, text: u.theme === 'hallow' ? '金縛りの視線!' : '石化のにらみ!', fk: u.fk });
   try{ bellTone(1244, ac().currentTime, 1.2, 0.05); }catch(e){}
   juice(0.08, 6);
   return true;
@@ -1330,7 +1340,7 @@ function flameSweep(u){
   }
   const zx = u.x + Math.cos(base)*110, zy = u.y + Math.sin(base)*110;
   zones.push({ x: zx, y: zy, r: 56, ttl: 3, fk: u.fk, acc: 0 });
-  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: '業火!', col: '#ff8a3a' });
+  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: u.theme === 'hallow' ? 'かぼちゃの業火!' : '業火!', col: '#ff8a3a' });
   boom(); juice(0.06, 5);
   return true;
 }
@@ -1340,7 +1350,7 @@ function pinwheelCharge(u){
   const tx = foe ? foe.x : u.x, ty = foe ? foe.y : u.y + dir * 150;
   u.chain = 2;
   u.jump = { x0: u.x, y0: u.y, tx, ty, t: 0, dur: 0.42, amp: 60 };
-  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: '風車大進軍!', col: '#8fd0f0' });
+  floats.push({ x: u.x, y: u.y - u.r - 14, t: 0, text: u.theme === 'hallow' ? '黒猫の大跳躍!' : '風車大進軍!', col: '#8fd0f0' });
   thump(0.15); juice(0.04, 4);
   return true;
 }
@@ -1355,7 +1365,7 @@ function foxBeam(u){
   }
   hurtBase(foeFk, 30, u.x);
   effects.push({ kind:'beam', x: u.x, t: 0, fk: u.fk });
-  effects.push({ kind:'banner', t: 0, text: '九陽ノ大火', fk: u.fk });
+  effects.push({ kind:'banner', t: 0, text: u.theme === 'hallow' ? '冥界の邪炎' : '九陽ノ大火', fk: u.fk });
   trumpetFanfare(); boom(); juice(0.15, 12);
   return true;
 }
@@ -1388,13 +1398,14 @@ function kingSummon(u){
     units.push(m);
     effects.push({ kind:'pop', x: m.x, y: m.y, r: m.r + 10, t: 0, fk: u.fk });
   }
-  effects.push({ kind:'banner', t: 0, text: '軍勢召喚!', fk: u.fk });
+  effects.push({ kind:'banner', t: 0, text: u.theme === 'hallow' ? '魂刈り!' : '軍勢召喚!', fk: u.fk });
   trumpetFanfare(); thump(0.24); juice(0.08, 6);
   return true;
 }
 const SIG = {
   yokai:   { 2: petrifyGlare, 3: flameSweep, 4: pinwheelCharge, 10: foxBeam },
   muertos: { 1: candleLight, 7: catrinaCharm, 10: kingSummon },
+  hallow:  { 2: petrifyGlare, 3: pinwheelCharge, 4: flameSweep, 5: catrinaCharm, 9: kingSummon, 10: foxBeam },
 };
 
 // 必殺の手動発動（タップ／ゲスト送信／2PのSキー／BotAI）
@@ -1918,18 +1929,18 @@ function drawTitle(){
   ctx.textAlign = 'center';
   ctx.fillStyle = '#c9b98a'; ctx.font = '28px serif';
   ctx.fillText('百鬼あわせ 対戦版', W/2, H/2 - 108);
-  drawFruit({ x: W/2-78, y: H/2-16, r: 48, tier: 6, theme:'yokai',   wobble:1, angle:0, rage:0, gold:false }, false);
-  drawFruit({ x: W/2+78, y: H/2-16, r: 48, tier: 7, theme:'muertos', wobble:3, angle:0, rage:0, gold:false }, false);
+  for(const [ax, th, tr, wb] of ARMY_PICKS)
+    drawFruit({ x: ax, y: H/2-16, r: 44, tier: tr, theme: th, wobble: wb, angle: 0, rage: 0, gold: false }, false);
   if(diffSel){
-    // キャラをタップして軍を選ぶ（天狗=日本 / カトリーナ=メキシコ）
-    for(const [ax, th] of [[W/2 - 78, 'yokai'], [W/2 + 78, 'muertos']]){
+    // キャラをタップして軍を選ぶ（天狗=日本 / ジャックランタン=ハロウィン / カトリーナ=メキシコ）
+    for(const [ax, th] of ARMY_PICKS){
       const sel = myArmy === th;
       ctx.strokeStyle = sel ? `rgba(255,215,106,${0.7 + 0.3 * Math.sin(time * 5)})` : 'rgba(90,84,112,0.55)';
       ctx.lineWidth = sel ? 3 : 1.5;
       if(sel) ctx.setLineDash([]); else ctx.setLineDash([4, 5]);
-      ctx.beginPath(); ctx.arc(ax, H/2 - 16, 58, 0, 7); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = sel ? '#ffd76a' : '#8d86a5'; ctx.font = sel ? 'bold 12px serif' : '11px serif';
-      ctx.fillText(ARMY_NAME[th], ax, H/2 + 54);
+      ctx.beginPath(); ctx.arc(ax, H/2 - 16, 54, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = sel ? '#ffd76a' : '#8d86a5'; ctx.font = sel ? 'bold 11px serif' : '10px serif';
+      ctx.fillText(ARMY_NAME[th], ax, H/2 + 52);
     }
     ctx.fillStyle = '#c9b98a'; ctx.font = '13.5px serif';
     ctx.fillText('使う軍をえらんで、Botの強さで出発', W/2, H/2 + 74);
@@ -2075,11 +2086,144 @@ ROSTER_EL.addEventListener('mouseleave', () => {
   for(const btn of ROSTER_EL.querySelectorAll('.rIcon')) btn.style.setProperty('--mag', 1);
 });
 // ヘルプ・図鑑モーダル
+// ---- 百鬼武鑑（リッチ図鑑）: 実キャラをスクラッチ描画→カード転写。瞳はカーソル追跡 ----
+const DEX_KIT = {
+  yokai: [
+    ['死ぬと小爆発', '突撃自爆'], ['移動が速い', '三連爪'], ['被ダメ10%減', '石化のにらみ'],
+    ['遠隔の火弾', '業火（燃える床）'], ['15%で弾く', '風車大進軍'], ['水弾', '直線ノックバック'],
+    ['飛翔急襲', '竜巻'], ['通常に小スタン', '範囲スタン地割れ'], ['城・祠に特攻', '骨の雨'],
+    ['被ダメ25%減・鈍足', '超範囲踏みつけ'], ['大将', '九陽ノ大火']],
+  muertos: [
+    ['死ぬと味方小回復', '花弁自爆'], ['周囲を毎秒回復', '大灯（広範囲回復）'], ['敵の必殺を遅延', '高速五連撃'],
+    ['周囲の敵を減速', '味方シールド'], ['弱った敵を追う', '貫通ダッシュ'], ['味方の攻撃速度up', '扇状スロー弾'],
+    ['味方の被ダメ減', '範囲DoT'], ['敵の攻撃力低下', '死の抱擁（寝返り）'], ['飛行・前線越え', '最後衛へ急襲'],
+    ['死ぬと全体回復', '自傷大回復'], ['大将・味方攻撃up', '軍勢召喚']],
+  hallow: [
+    ['死ぬと甘い香りで足止め', 'シュガーラッシュ'], ['飛行・小回り', '吸血小噛み'], ['被ダメ10%減', '金縛りの視線'],
+    ['すばしっこい', '黒猫の大跳躍'], ['遠隔の火球', 'かぼちゃの業火'], ['魔弾', '魅了の魔法'],
+    ['飛翔急襲', '血の渇き'], ['硬い', '電撃ハグ'], ['包帯回転', '呪いの包帯'],
+    ['被ダメ25%減', '魂刈り'], ['大将', '冥界の邪炎']],
+};
+let dexArmy = 'yokai';
+let dexFo = [];
+const uiCursor = { x: -999, y: -999 };
+document.addEventListener('mousemove', e => { uiCursor.x = e.clientX; uiCursor.y = e.clientY; });
+function buildDexGrid(){
+  const grid = document.getElementById('dexGrid');
+  grid.innerHTML = '';
+  dexFo = [];
+  const kit = DEX_KIT[dexArmy];
+  for(let i = 0; i <= 10; i++){
+    const item = document.createElement('div');
+    item.className = 'dexItem';
+    const role = IS_GUARD(i, dexArmy) ? '<span class="gMark">護衛</span>' : '<span class="aMark">進撃</span>';
+    item.innerHTML = `<canvas width="110" height="110"></canvas>
+      <div><div class="dh">${THEMES[dexArmy][i].name}${role}</div>
+      <div class="dt">特性: ${kit[i][0]}<br>必殺: <b>${kit[i][1]}</b></div></div>`;
+    grid.appendChild(item);
+    dexFo.push({ x: 55, y: 55, r: 40, tier: i, theme: dexArmy, wobble: i, angle: 0, rage: 0, gold: i >= 10 });
+  }
+}
+document.querySelectorAll('.dexTab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dexTab').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    dexArmy = btn.dataset.army;
+    buildDexGrid();
+  });
+});
+function blitRegion(icv, sx, sy, sw, sh){
+  const k = cv.width / W;                              // ?hd=1 なら2
+  const ictx = icv.getContext('2d');
+  ictx.clearRect(0, 0, icv.width, icv.height);
+  ictx.drawImage(cv, sx * k, sy * k, sw * k, sh * k, 0, 0, icv.width, icv.height);
+}
+function renderDexFrames(){
+  const cards = document.querySelectorAll('#dexModal .dexItem canvas');
+  cards.forEach((icv, i) => {
+    const fo = dexFo[i];
+    if(!fo) return;
+    const rect = icv.getBoundingClientRect();
+    const dx = uiCursor.x - (rect.left + rect.width / 2);
+    const dy = uiCursor.y - (rect.top + rect.height / 2);
+    fo.gazeTX = 55 + Math.max(-60, Math.min(60, dx * 0.25));
+    fo.gazeTY = 55 + Math.max(-60, Math.min(60, dy * 0.25));
+    ctx.clearRect(0, 0, 112, 112);
+    drawFruit(fo, false);
+    blitRegion(icv, 0, 0, 110, 110);
+  });
+  ctx.clearRect(0, 0, 112, 112);
+}
+// ---- 遊び方の図解: 同じスクラッチ転写で、絵で説明する ----
+const howFo = {
+  a1: { x: 60, y: 62, r: 26, tier: 5, theme: 'yokai', wobble: 1, angle: 0, rage: 0, gold: false },
+  a2: { x: 150, y: 62, r: 26, tier: 5, theme: 'yokai', wobble: 3, angle: 0, rage: 0, gold: false },
+  a3: { x: 340, y: 60, r: 40, tier: 6, theme: 'yokai', wobble: 2, angle: 0, rage: 0, gold: false },
+  b: [], c1: { x: 70, y: 74, r: 30, tier: 5, theme: 'yokai', wobble: 2, angle: 0, rage: 0, gold: false },
+  d: { x: 110, y: 60, r: 36, tier: 7, theme: 'yokai', wobble: 4, angle: 0, rage: 0, gold: false },
+};
+for(let i = 0; i < 3; i++){
+  howFo.b.push({ x: 60 + i * 52, y: 60, r: 20, tier: i + 3, theme: 'yokai', wobble: i, angle: 0, rage: 0, gold: false });
+  howFo.b.push({ x: 380 - i * 52, y: 60, r: 20, tier: i + 3, theme: 'muertos', wobble: i + 3, angle: 0, rage: 0, gold: false });
+}
+function renderHelpFrames(){
+  const k = (sel) => document.getElementById(sel);
+  ctx.save();
+  // ①合体: 河童＋河童→天狗
+  ctx.clearRect(0, 0, 442, 122);
+  ctx.fillStyle = '#141026'; ctx.fillRect(0, 0, 442, 122);
+  drawFruit(howFo.a1, false); drawFruit(howFo.a2, false);
+  ctx.fillStyle = '#c9b98a'; ctx.font = 'bold 26px serif'; ctx.textAlign = 'center';
+  ctx.fillText('＋', 105, 70); ctx.fillText('→', 235, 70);
+  drawFruit(howFo.a3, false);
+  blitRegion(k('how1'), 0, 0, 440, 120);
+  // ②決戦: 両軍が祠を挟んで対峙
+  ctx.clearRect(0, 0, 442, 122);
+  ctx.fillStyle = '#141026'; ctx.fillRect(0, 0, 442, 122);
+  ctx.strokeStyle = 'rgba(212,164,61,0.8)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(220, 8); ctx.lineTo(220, 112); ctx.stroke(); ctx.setLineDash([]);
+  for(const fo of howFo.b) drawFruit(fo, false);
+  ctx.fillStyle = '#e06a3a'; ctx.beginPath(); ctx.arc(220, 60, 15, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 15px serif'; ctx.fillText('祠', 220, 66);
+  blitRegion(k('how2'), 0, 0, 440, 120);
+  // ③召喚: ロースター→ゾーンへ
+  ctx.clearRect(0, 0, 442, 122);
+  ctx.fillStyle = '#141026'; ctx.fillRect(0, 0, 442, 122);
+  drawFruit(howFo.c1, false);
+  ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(70, 74, 36, 0, 7); ctx.stroke();
+  ctx.fillStyle = '#c9b98a'; ctx.font = 'bold 26px serif'; ctx.fillText('→', 145, 74);
+  ctx.fillStyle = 'rgba(212,164,61,0.14)'; ctx.fillRect(185, 20, 235, 84);
+  ctx.strokeStyle = 'rgba(212,164,61,0.7)'; ctx.setLineDash([7, 5]);
+  ctx.strokeRect(185, 20, 235, 84); ctx.setLineDash([]);
+  ctx.fillStyle = '#ffd76a'; ctx.font = '15px sans-serif'; ctx.fillText('召喚ゾーンをタップ', 302, 70);
+  blitRegion(k('how3'), 0, 0, 440, 120);
+  // ④必殺: 光る鬼＋タップ
+  ctx.clearRect(0, 0, 442, 122);
+  ctx.fillStyle = '#141026'; ctx.fillRect(0, 0, 442, 122);
+  drawFruit(howFo.d, false);
+  ctx.strokeStyle = `rgba(212,164,61,${0.55 + 0.35 * Math.sin(time * 5)})`;
+  ctx.lineWidth = 2.5; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.arc(110, 60, 44, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#ffd76a'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('← タップで必殺技！', 175, 66);
+  ctx.textAlign = 'center';
+  blitRegion(k('how4'), 0, 0, 440, 120);
+  ctx.clearRect(0, 0, 442, 122);
+  ctx.restore();
+}
+function syncPause(){
+  const anyOpen = !document.getElementById('helpModal').hidden || !document.getElementById('dexModal').hidden;
+  uiPaused = anyOpen;
+}
 for(const [btnId, modalId] of [['helpBtn', 'helpModal'], ['dexBtn', 'dexModal']]){
   const modal = document.getElementById(modalId);
-  document.getElementById(btnId).addEventListener('click', () => { modal.hidden = false; });
-  modal.addEventListener('click', e => { if(e.target === modal) modal.hidden = true; });
-  modal.querySelector('.modalClose').addEventListener('click', () => { modal.hidden = true; });
+  document.getElementById(btnId).addEventListener('click', () => {
+    modal.hidden = false; syncPause();
+    if(modalId === 'dexModal' && !document.querySelector('#dexGrid .dexItem')) buildDexGrid();
+  });
+  modal.addEventListener('click', e => { if(e.target === modal){ modal.hidden = true; syncPause(); } });
+  modal.querySelector('.modalClose').addEventListener('click', () => { modal.hidden = true; syncPause(); });
 }
 function drawShrines(){
   for(const sh of shrines){
@@ -2207,14 +2351,16 @@ function drawCastleJP(){
     ctx.fillStyle = lg;
     ctx.beginPath(); ctx.arc(x, y0 + 9, 7, 0, 7); ctx.fill();
   }
-  // 下の城（自軍のテーマに応じて天守閣か祭壇ピラミッド・三棟構え、中央がデカい）
-  const cImg = buildingImages[FACTION.jp.theme === 'yokai' ? 'castleJp' : 'castleMx'];
+  // 下の城（自軍のテーマに応じて天守閣/祭壇/古城(紫)・三棟構え、中央がデカい）
+  const cImg = buildingImages[FACTION.jp.theme === 'muertos' ? 'castleMx' : 'castleJp'];
+  if(FACTION.jp.theme === 'hallow') ctx.filter = 'hue-rotate(230deg) saturate(0.75) brightness(0.82)';
   if(imageReady(cImg)){
     for(const [bx, cw] of [[74, 64], [W/2, 122], [W - 74, 64]]){
       const ch = cw * cImg.naturalHeight / cImg.naturalWidth;
       ctx.drawImage(cImg, bx - cw/2, H - 12 - ch, cw, ch);
     }
   }
+  ctx.filter = 'none';
   castleCracks(hp, y0 + 12, BASE_H - 12, false);
 }
 function drawCastleMX(){
@@ -2229,6 +2375,7 @@ function drawCastleMX(){
   // 上の城（Bot軍のテーマに応じた建物・上下逆さに吊り下がる三棟、中央がデカい）
   const cx = W / 2;
   const pImg = buildingImages[FACTION.mx.theme === 'muertos' ? 'castleMx' : 'castleJp'];
+  if(FACTION.mx.theme === 'hallow') ctx.filter = 'hue-rotate(230deg) saturate(0.75) brightness(0.82)';
   if(imageReady(pImg)){
     for(const [bx, pw] of [[74, 68], [cx, 130], [W - 74, 68]]){
       const ph = pw * pImg.naturalHeight / pImg.naturalWidth;
@@ -2239,6 +2386,7 @@ function drawCastleMX(){
       ctx.restore();
     }
   }
+  ctx.filter = 'none';
   // パペルピカド（切り紙の旗）
   const pCols = ['#e05c8a', '#3ab0c8', '#ffd24a', '#7ab05a'];
   ctx.strokeStyle = 'rgba(230,220,200,0.5)'; ctx.lineWidth = 1;
@@ -2508,6 +2656,7 @@ function loop(ts){
   const realDt = Math.min(0.05, (ts - lastTs)/1000 || 0.016); lastTs = ts;
   let dt = realDt;
   if(hitStop > 0){ hitStop -= realDt; dt = 0; }
+  if(uiPaused && !net) dt = 0;
   shakeAmp = Math.max(0, shakeAmp - realDt * 14);
   time += realDt;
   for(const e of effects) e.t += dt;
@@ -2568,6 +2717,8 @@ function loop(ts){
   draw();
   ctx.restore();
   updateRosterDOM();
+  if(!document.getElementById('dexModal').hidden) renderDexFrames();
+  if(!document.getElementById('helpModal').hidden) renderHelpFrames();
   if(net && net.role === 'host' && net.conn.open && frameNo % 3 === 0){
     try{ net.conn.send(makeSnap()); }catch(e){}
   }
@@ -2608,8 +2759,9 @@ cv.addEventListener('click', () => {
   if(phase === 'title'){
     if(diffSel){
       // 軍選択（キャラをタップ）とBotの強さ
-      if(Math.hypot(mouseX - (W/2 - 78), mouseY - (H/2 - 16)) < 60){ myArmy = 'yokai'; return; }
-      if(Math.hypot(mouseX - (W/2 + 78), mouseY - (H/2 - 16)) < 60){ myArmy = 'muertos'; return; }
+      for(const [ax, th] of ARMY_PICKS){
+        if(Math.hypot(mouseX - ax, mouseY - (H/2 - 16)) < 56){ myArmy = th; return; }
+      }
       if(inBtn(BTN1, mouseX, mouseY)) botLv = 'ko';
       else if(inBtn(BTN2, mouseX, mouseY)) botLv = 'oni';
       else if(inBtn(BTN3, mouseX, mouseY)) botLv = 'hyakki';
@@ -2767,7 +2919,7 @@ function joinRoom(){
   });
   peer.on('error', e => setNetStatus(e.type === 'peer-unavailable' ? `合言葉「${code}」の部屋が見つかりません（先に相手が「部屋を作る」を押した合言葉を入れてください）` : '接続エラー: ' + e.type));
 }
-const BUILD_VER = 'v9.8';  // 版番号はここだけを更新する（canvas右下に描画される）
+const BUILD_VER = 'v10.0';  // 版番号はここだけを更新する（canvas右下に描画される）
 function resetZoom(){
   const vp = document.querySelector('meta[name="viewport"]');
   if(!vp) return;
